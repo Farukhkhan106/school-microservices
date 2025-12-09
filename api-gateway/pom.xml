@@ -5,12 +5,11 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- REQUIRED: Spring Boot parent -->
+    <!-- Spring Boot Parent -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.2.4</version>
-        <relativePath/>
     </parent>
 
     <groupId>com.successacademy</groupId>
@@ -22,7 +21,7 @@
         <spring-cloud.version>2023.0.3</spring-cloud.version>
     </properties>
 
-    <!-- SPRING CLOUD BOM -->
+    <!-- Import Spring Cloud BOM -->
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -43,16 +42,43 @@
             <artifactId>spring-cloud-starter-gateway</artifactId>
         </dependency>
 
-        <!-- WEBFLUX REQUIRED BY GATEWAY -->
+        <!-- WebFlux Required for Gateway -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
 
-        <!-- ACTUATOR (OPTIONAL) -->
+        <!-- Spring Security (We will override login with our config) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- ACTUATOR (Optional but useful) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- JWT DEPENDENCIES (Correct Version for Your Code) -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.11.5</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.11.5</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.11.5</version>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- LOMBOK -->
@@ -60,12 +86,6 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
-        </dependency>
-
-        <!-- SECURITY (TO DISABLE LOGIN WE CREATED CONFIG) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
     </dependencies>
