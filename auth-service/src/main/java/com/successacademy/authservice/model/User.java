@@ -12,7 +12,13 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String username;   // admin username
-    private String password;   // encrypted password
-    private String role;       // ADMIN
+    private String username;
+    private String password;   // BCrypt encoded
+    private String role;       // ADMIN / STUDENT / TEACHER
+
+    private String email;
+
+    // Links to other service entities (nullable)
+    private Long studentId;    // FK → student-service students.id
+    private Long teacherId;    // FK → faculty-service faculty.id
 }

@@ -12,10 +12,22 @@ import java.util.List;
 public class ContactServiceImpl implements ContactService {
 
     private final ContactRepository repository;
+    private final EmailService emailService;
 
     @Override
     public Contact submit(Contact contact) {
-        return repository.save(contact);
+        contact.setStatus("Pending");
+        contact.setSubmittedAt(java.time.LocalDateTime.now());
+        if (contact.getEnquiryType() == null || contact.getEnquiryType().isBlank()) {
+            contact.setEnquiryType("General");
+        }
+        Contact saved = repository.save(contact);
+
+        // 🔔 Send a real email notification to the admin inbox.
+        //    Async + try/catch inside — never blocks or breaks the submission.
+        emailService.sendNewEnquiryNotification(saved);
+
+        return saved;
     }
 
     @Override
@@ -28,17 +40,32 @@ public class ContactServiceImpl implements ContactService {
 
     @Override
     public List<Contact> getPendingMessages() {
-        return repository.findByResolved(false)
+        // Returns Pending + In Progress (everything that's not Resolved)
+        return repository.findByStatusNot("Resolved")
                 .stream()
                 .sorted((a, b) -> b.getId().compareTo(a.getId()))
                 .toList();
     }
 
     @Override
-    public Contact markResolved(Long id, boolean resolved) {
+    public Contact updateStatus(Long id, String status) {
         Contact contact = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Contact message not found"));
-        contact.setResolved(resolved);
+                .orElseThrow(() -> new RuntimeException("Contact message not found with id: " + id));
+
+        // Validate allowed statuses
+        if (!status.equals("Pending") && !status.equals("In Progress") && !status.equals("Resolved")) {
+            throw new RuntimeException("Invalid status. Allowed: Pending, In Progress, Resolved");
+        }
+
+        contact.setStatus(status);
+        return repository.save(contact);
+    }
+
+    @Override
+    public Contact updateNotes(Long id, String notes) {
+        Contact contact = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Contact message not found with id: " + id));
+        contact.setNotes(notes);
         return repository.save(contact);
     }
 

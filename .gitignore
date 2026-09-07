@@ -1,0 +1,16 @@
+# ── BUILD OUTPUT ─────────────────────────────────────────────
+target/
+*/target/
+
+# ── IDE / EDITOR ─────────────────────────────────────────────
+.idea/
+*.iml
+.vscode/
+
+# ── RUNTIME UPLOADED FILES (not source code) ─────────────────
+uploads/
+**/uploads/
+
+# ── LOGS ─────────────────────────────────────────────────────
+*.log
+logs/

@@ -17,6 +17,15 @@ public interface NoticeService {
 
     List<Notice> getActiveNotices();
 
+    // Public website — isPublic=true + status=Published + active=true
+    List<Notice> getPublicNotices();
+
+    // Public + filtered by category
+    List<Notice> getPublicNoticesByCategory(String category);
+
+    // Admin/internal — filter by category
+    List<Notice> getNoticesByCategory(String category);
+
     Notice getNoticeById(Long id);
 
     List<Notice> searchByTitle(String keyword);

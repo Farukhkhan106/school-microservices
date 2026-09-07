@@ -11,39 +11,48 @@ import java.util.List;
 @RestController
 @RequestMapping("/contact")
 @RequiredArgsConstructor
-@CrossOrigin("*")
 public class ContactController {
 
     private final ContactService service;
 
-    // PUBLIC: Submit contact message
+    // ── PUBLIC (whitelisted in gateway — no auth needed) ────────
+
     @PostMapping("/submit")
     public ResponseEntity<Contact> submit(@RequestBody Contact contact) {
         return ResponseEntity.ok(service.submit(contact));
     }
 
-    // ADMIN: Get all contact messages
+    // ── ADMIN ────────────────────────────────────────────────────
+
+    // Get all messages
     @GetMapping("/all")
     public ResponseEntity<List<Contact>> all() {
         return ResponseEntity.ok(service.getAllMessages());
     }
 
-    // ADMIN: Get only pending (not resolved) messages
+    // Get pending + in-progress (not resolved)
     @GetMapping("/pending")
     public ResponseEntity<List<Contact>> pending() {
         return ResponseEntity.ok(service.getPendingMessages());
     }
 
-    // ADMIN: Mark as resolved / unresolved
-    @PutMapping("/resolve/{id}")
-    public ResponseEntity<Contact> resolve(
+    // Update status: Pending | In Progress | Resolved
+    @PutMapping("/status/{id}")
+    public ResponseEntity<Contact> updateStatus(
             @PathVariable Long id,
-            @RequestParam boolean status
-    ) {
-        return ResponseEntity.ok(service.markResolved(id, status));
+            @RequestParam String status) {
+        return ResponseEntity.ok(service.updateStatus(id, status));
     }
 
-    // ADMIN: Delete a message
+    // Update admin notes
+    @PutMapping("/notes/{id}")
+    public ResponseEntity<Contact> updateNotes(
+            @PathVariable Long id,
+            @RequestParam String notes) {
+        return ResponseEntity.ok(service.updateNotes(id, notes));
+    }
+
+    // Delete message
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<String> delete(@PathVariable Long id) {
         service.deleteMessage(id);

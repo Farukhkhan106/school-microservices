@@ -10,9 +10,14 @@ public interface ContactService {
 
     List<Contact> getAllMessages();
 
+    // Pending messages (status != Resolved)
     List<Contact> getPendingMessages();
 
-    Contact markResolved(Long id, boolean resolved);
+    // Update status: Pending | In Progress | Resolved
+    Contact updateStatus(Long id, String status);
+
+    // Admin adds/updates internal notes
+    Contact updateNotes(Long id, String notes);
 
     void deleteMessage(Long id);
 }

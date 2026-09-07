@@ -17,6 +17,15 @@ public interface EventService {
 
     List<Event> getActiveEvents();
 
+    // Public website — active=true, ordered by date
+    List<Event> getPublicEvents();
+
+    // Upcoming — eventDate >= today, active=true
+    List<Event> getUpcomingEvents();
+
+    // Past — eventDate < today, active=true
+    List<Event> getPastEvents();
+
     Event getEventById(Long id);
 
     List<Event> searchByTitle(String keyword);

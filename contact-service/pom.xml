@@ -81,6 +81,12 @@
             <version>8.3.0</version>
         </dependency>
 
+        <!-- ⭐ EMAIL — sends real email notifications to admin (Gmail SMTP) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
     </dependencies>
 
     <!-- ⭐ Add Spring Cloud repositories -->
