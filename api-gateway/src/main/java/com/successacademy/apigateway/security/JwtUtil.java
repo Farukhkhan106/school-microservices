@@ -25,11 +25,43 @@ public class JwtUtil {
 
     public String validateToken(String token) {
         try {
-            Claims claims = Jwts.parser()
-                    .setSigningKey(getKey())
-                    .parseClaimsJws(token)
-                    .getBody();
+            Claims claims = parse(token);
             return claims.getSubject();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Claims parse(String token) {
+        return Jwts.parser()
+                .setSigningKey(getKey())
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    /** Auth user id claim (null when absent in older tokens). */
+    public Long extractUserId(String token) {
+        try {
+            Object v = parse(token).get("userId");
+            return v instanceof Number ? ((Number) v).longValue() : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Linked student id claim (null for non-students). */
+    public Long extractStudentId(String token) {
+        try {
+            Object v = parse(token).get("studentId");
+            return v instanceof Number ? ((Number) v).longValue() : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public String extractRole(String token) {
+        try {
+            return parse(token).get("role", String.class);
         } catch (Exception e) {
             return null;
         }

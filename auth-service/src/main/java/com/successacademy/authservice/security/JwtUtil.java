@@ -25,9 +25,17 @@ public class JwtUtil {
 
     // CREATE TOKEN
     public String generateToken(String username, String role) {
+        return generateToken(username, role, null, null);
+    }
+
+    // Full token — carries the authenticated user's id (and linked student id)
+    // so downstream services (via gateway headers) can authorize ownership.
+    public String generateToken(String username, String role, Long userId, Long studentId) {
         return Jwts.builder()
                 .setSubject(username)
                 .claim("role", role)
+                .claim("userId", userId)
+                .claim("studentId", studentId)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)

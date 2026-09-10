@@ -89,7 +89,17 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                             .wrap("Invalid or expired token".getBytes())));
         }
 
-        return chain.filter(exchange);
+        // Forward the authenticated identity to downstream services so THEY can
+        // enforce role/ownership rules (services must never trust client input).
+        ServerWebExchange mutated = exchange.mutate()
+                .request(exchange.getRequest().mutate()
+                        .header("X-User-Id", String.valueOf(jwtUtil.extractUserId(token)))
+                        .header("X-User-Role", jwtUtil.extractRole(token) == null ? "" : jwtUtil.extractRole(token))
+                        .header("X-Student-Id", String.valueOf(jwtUtil.extractStudentId(token)))
+                        .build())
+                .build();
+
+        return chain.filter(mutated);
     }
 
     @Override

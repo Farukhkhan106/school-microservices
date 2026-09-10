@@ -170,6 +170,19 @@ public class StudentServiceImpl implements StudentService {
     }
 
     // ─────────────────────────────────────────────────────────────
+    //  TOGGLE STATUS
+    // ─────────────────────────────────────────────────────────────
+    @Override
+    public StudentResponse toggleStatus(Long id) {
+        Student s = studentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Student not found with id: " + id));
+        String current = s.getStatus() != null ? s.getStatus() : "Active";
+        s.setStatus("Active".equals(current) ? "Inactive" : "Active");
+        studentRepository.save(s);
+        return mapToResponse(s);
+    }
+
+    // ─────────────────────────────────────────────────────────────
     //  HELPERS
     // ─────────────────────────────────────────────────────────────
 

@@ -24,4 +24,6 @@ public interface StudentService {
     String uploadPhoto(Long id, org.springframework.web.multipart.MultipartFile file);
 
     String uploadGeneralPhoto(org.springframework.web.multipart.MultipartFile file);
+
+    StudentResponse toggleStatus(Long id);
 }

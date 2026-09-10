@@ -64,4 +64,9 @@ public class StudentController {
         String url = studentService.uploadGeneralPhoto(file);
         return java.util.Map.of("photoUrl", url);
     }
+
+    @PutMapping("/{id}/toggle")
+    public StudentResponse toggleStatus(@PathVariable Long id) {
+        return studentService.toggleStatus(id);
+    }
 }
