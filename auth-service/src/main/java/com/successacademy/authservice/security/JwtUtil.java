@@ -28,14 +28,19 @@ public class JwtUtil {
         return generateToken(username, role, null, null);
     }
 
-    // Full token — carries the authenticated user's id (and linked student id)
+    // Full token — carries the authenticated user's id (and linked student / teacher id)
     // so downstream services (via gateway headers) can authorize ownership.
     public String generateToken(String username, String role, Long userId, Long studentId) {
+        return generateToken(username, role, userId, studentId, null);
+    }
+
+    public String generateToken(String username, String role, Long userId, Long studentId, Long teacherId) {
         return Jwts.builder()
                 .setSubject(username)
                 .claim("role", role)
                 .claim("userId", userId)
                 .claim("studentId", studentId)
+                .claim("teacherId", teacherId)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)

@@ -12,4 +12,6 @@ public interface AuthService {
     RegisterResponse register(RegisterRequest request);
 
     boolean usernameExists(String username);
+
+    void setTeacherStatus(Long teacherId, String status);
 }

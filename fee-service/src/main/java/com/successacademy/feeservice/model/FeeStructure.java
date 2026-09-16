@@ -17,12 +17,17 @@ public class FeeStructure {
     private Long id;
 
     @Column(nullable = false, unique = true)
-    private String className;        // e.g. "Class 1-5", "Class 9-10"
+    private String className;        // e.g. "Class 1", "Class 10", "Nursery", "LKG", "UKG"
 
     private BigDecimal tuitionFee;
     private BigDecimal transportFee;
     private BigDecimal libraryFee;
     private BigDecimal labFee;
     private BigDecimal sportsFee;
+    private BigDecimal booksFee;
+    private BigDecimal uniformFee;
+    private BigDecimal examFee;
+    private BigDecimal otherFee;
+
     private BigDecimal totalFee;     // sum of all above
 }

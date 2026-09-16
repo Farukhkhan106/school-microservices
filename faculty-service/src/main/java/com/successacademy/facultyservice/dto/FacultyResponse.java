@@ -21,4 +21,6 @@ public class FacultyResponse {
     private String photoUrl;
     private String status;
     private Long userId;
+    private List<String> assignedClasses;
+    private int todayClassesCount;
 }

@@ -58,6 +58,15 @@ public class AuthController {
         return ResponseEntity.ok("Password changed successfully");
     }
 
+    // ── Update teacher user status (Active / Inactive) ──────────
+    @PutMapping("/teacher/{teacherId}/status")
+    public ResponseEntity<Void> updateTeacherStatus(
+            @PathVariable Long teacherId,
+            @RequestParam String status) {
+        authService.setTeacherStatus(teacherId, status);
+        return ResponseEntity.ok().build();
+    }
+
     // ── Health check ──────────────────────────────────────────────
     @GetMapping("/test")
     public String test() {

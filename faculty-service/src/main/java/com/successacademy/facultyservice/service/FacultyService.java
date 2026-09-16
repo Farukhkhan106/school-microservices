@@ -20,7 +20,7 @@ public interface FacultyService {
 
     List<FacultyResponse> getAllFaculty();
 
-    List<FacultyResponse> getActiveFaculty();    // public website
+    List<com.successacademy.facultyservice.dto.PublicFacultyResponse> getActiveFaculty();    // public website
 
     FacultyResponse getFacultyById(Long id);
 
@@ -72,4 +72,21 @@ public interface FacultyService {
     boolean hasAnyAccess(Long authUserId, String studentClass, String section);
 
     boolean hasClassTeacherAccess(Long authUserId, String studentClass, String section);
+
+    java.util.Map<String, Object> checkDeactivation(Long id);
+
+    java.util.Map<String, String> getAllClassTeachers();
+
+    // ── TEACHER ABSENCE & SUBSTITUTE WORKFLOW ────────────────────
+    com.successacademy.facultyservice.dto.SubstituteResponse markAbsenceAndAssignSubstitute(com.successacademy.facultyservice.dto.SubstituteRequest request);
+
+    void cancelSubstitute(Long id);
+
+    List<com.successacademy.facultyservice.dto.SubstituteResponse> getSubstitutesByDate(java.time.LocalDate date);
+
+    List<com.successacademy.facultyservice.dto.SubstituteResponse> getSubstitutesForTeacher(Long teacherId);
+
+    com.successacademy.facultyservice.dto.AbsenceOverviewResponse getAbsenceOverview(java.time.LocalDate date);
+
+    List<com.successacademy.facultyservice.dto.SubstituteResponse> getMySubstitutions(Long authUserId, java.time.LocalDate date);
 }

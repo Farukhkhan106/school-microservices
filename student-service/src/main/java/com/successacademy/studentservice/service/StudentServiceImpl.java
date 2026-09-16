@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import com.successacademy.studentservice.client.FacultyServiceClient;
 import java.util.UUID;
 
 @Service
@@ -25,12 +26,61 @@ public class StudentServiceImpl implements StudentService {
 
     private final StudentRepository studentRepository;
     private final AuthServiceClient authServiceClient;
+    private final FacultyServiceClient facultyServiceClient;
+
+    @Override
+    public List<StudentResponse> getAssignedStudents(Long userId, String role) {
+        if ("ADMIN".equalsIgnoreCase(role)) {
+            return getAllStudents();
+        }
+        if (userId == null) {
+            return List.of();
+        }
+        List<String> allowed = facultyServiceClient.getAllowedClasses(userId);
+        if (allowed == null || allowed.isEmpty()) {
+            return List.of();
+        }
+        return studentRepository.findAll().stream()
+                .filter(s -> {
+                    String cs = s.getStudentClass() + "-" + (s.getSection() != null ? s.getSection().trim() : "");
+                    return allowed.stream().anyMatch(a -> a.equalsIgnoreCase(cs));
+                })
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Override
+    public List<StudentResponse> getStudentsByClassAndSection(String studentClass, String section) {
+        if (section != null && !section.isBlank()) {
+            return studentRepository.findByStudentClassAndSectionIgnoreCase(studentClass.trim(), section.trim())
+                    .stream().map(this::mapToResponse).toList();
+        }
+        return studentRepository.findByStudentClass(studentClass.trim())
+                .stream().map(this::mapToResponse).toList();
+    }
 
     // ─────────────────────────────────────────────────────────────
     //  CREATE — also auto-creates login account in auth-service
     // ─────────────────────────────────────────────────────────────
     @Override
     public StudentResponse addStudent(StudentRequest r) {
+        if (r.getAdmissionNo() != null && !r.getAdmissionNo().isBlank()) {
+            if (studentRepository.existsByAdmissionNoIgnoreCase(r.getAdmissionNo().trim())) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "Admission number '" + r.getAdmissionNo().trim() + "' is already in use by another student."
+                );
+            }
+        }
+        if (r.getEmail() != null && !r.getEmail().isBlank()) {
+            if (studentRepository.existsByEmailIgnoreCase(r.getEmail().trim())) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "Email '" + r.getEmail().trim() + "' is already registered."
+                );
+            }
+        }
+
         Student student = mapToEntity(r);
         Student saved = studentRepository.save(student);
 

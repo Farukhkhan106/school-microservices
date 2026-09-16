@@ -39,6 +39,19 @@ public class AuthServiceClient {
         return createUser(username, password, emailFinal, "TEACHER", facultyId);
     }
 
+    /**
+     * Updates teacher user account status (ACTIVE / INACTIVE) in auth-service.
+     */
+    public void updateTeacherStatus(Long teacherId, String status) {
+        if (teacherId == null) return;
+        try {
+            restTemplate.put(authServiceUrl + "/auth/teacher/" + teacherId + "/status?status=" + status, null);
+            log.info("✅ Updated auth status for teacherId={}: status={}", teacherId, status);
+        } catch (Exception e) {
+            log.warn("⚠️ Could not update auth status for teacherId {}: {}", teacherId, e.getMessage());
+        }
+    }
+
     private Long createUser(String username, String password, String email,
                              String role, Long teacherId) {
         try {

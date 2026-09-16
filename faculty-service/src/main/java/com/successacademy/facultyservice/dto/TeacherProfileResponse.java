@@ -13,4 +13,7 @@ public class TeacherProfileResponse {
     private List<AssignmentResponse> assignments;   // subject-teacher assignments
     private List<ScheduleResponse> schedule;        // own weekly timetable
     private List<String> allowedClasses;            // "8-A" style — classes this teacher may see
+    private List<SubstituteResponse> todaySubstitutions; // classes covering as substitute today
+    private boolean absentToday;                    // true if teacher is marked absent today
+    private String absenceReason;                   // reason if absent today
 }

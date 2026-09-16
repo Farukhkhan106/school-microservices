@@ -45,4 +45,8 @@ public class ClassSchedule {
 
     @Column(name = "teacher_id", nullable = false)
     private Long teacherId;        // FK → faculty.id
+
+    public String getClassSection() {
+        return studentClass + "-" + section;
+    }
 }

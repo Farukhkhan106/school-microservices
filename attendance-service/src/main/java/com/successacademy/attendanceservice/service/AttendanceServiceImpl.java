@@ -23,8 +23,8 @@ public class AttendanceServiceImpl implements AttendanceService {
     // ── MARK SINGLE ─────────────────────────────────────────────
     @Override
     public Attendance markAttendance(AttendanceRequest req) {
-        // Upsert: update if already exists for same student+date+subject
-        String subject = req.getSubject() != null ? req.getSubject() : "General";
+        // Daily attendance: always enforce "General" representing ONE daily class roll call per student per date
+        String subject = "General";
         Optional<Attendance> existing =
                 repository.findByStudentIdAndDateAndSubject(
                         req.getStudentId(), req.getDate(), subject);
@@ -83,7 +83,7 @@ public class AttendanceServiceImpl implements AttendanceService {
                 .toList();
     }
 
-    // ── STUDENT: summary (for StudentAcademics page) ─────────────
+    // ── STUDENT: summary ────────────────────────────────────────
     @Override
     public AttendanceSummaryResponse getStudentSummary(Long studentId) {
         long total   = repository.countByStudentId(studentId);
@@ -91,22 +91,10 @@ public class AttendanceServiceImpl implements AttendanceService {
         long absent  = repository.countByStudentIdAndStatus(studentId, "ABSENT");
         long late    = repository.countByStudentIdAndStatus(studentId, "LATE");
 
+        // Daily Attendance % = (PRESENT + LATE) / TOTAL MARKED * 100
         double percentage = total > 0
-                ? Math.round((present * 100.0 / total) * 10.0) / 10.0
+                ? Math.round(((present + late) * 100.0 / total) * 10.0) / 10.0
                 : 0.0;
-
-        // Per-subject attendance percentage
-        List<Object[]> subjectCounts = repository.countPresentBySubject(studentId);
-        Map<String, Double> subjectMap = new HashMap<>();
-        for (Object[] row : subjectCounts) {
-            String subject = (String) row[0];
-            long presentCount = (Long) row[1];
-            // total days per subject = total / number of subjects (approx)
-            double subjectPct = total > 0
-                    ? Math.round((presentCount * 100.0 / total) * 10.0) / 10.0
-                    : 0.0;
-            subjectMap.put(subject, subjectPct);
-        }
 
         return AttendanceSummaryResponse.builder()
                 .studentId(studentId)
@@ -115,7 +103,7 @@ public class AttendanceServiceImpl implements AttendanceService {
                 .absentDays(absent)
                 .lateDays(late)
                 .overallPercentage(percentage)
-                .subjectWisePercentage(subjectMap)
+                .subjectWisePercentage(Map.of())
                 .build();
     }
 

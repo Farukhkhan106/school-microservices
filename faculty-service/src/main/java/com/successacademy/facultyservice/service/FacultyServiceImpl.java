@@ -1,21 +1,27 @@
 package com.successacademy.facultyservice.service;
 
 import com.successacademy.facultyservice.client.AuthServiceClient;
+import com.successacademy.facultyservice.dto.AbsenceOverviewResponse;
 import com.successacademy.facultyservice.dto.AssignmentRequest;
 import com.successacademy.facultyservice.dto.AssignmentResponse;
 import com.successacademy.facultyservice.dto.FacultyRequest;
 import com.successacademy.facultyservice.dto.FacultyResponse;
 import com.successacademy.facultyservice.dto.ScheduleRequest;
 import com.successacademy.facultyservice.dto.ScheduleResponse;
+import com.successacademy.facultyservice.dto.SubstituteRequest;
+import com.successacademy.facultyservice.dto.SubstituteResponse;
 import com.successacademy.facultyservice.dto.TeacherProfileResponse;
 import com.successacademy.facultyservice.exception.ConflictException;
 import com.successacademy.facultyservice.exception.NotFoundException;
+import com.successacademy.facultyservice.exception.UnauthorizedException;
 import com.successacademy.facultyservice.model.ClassSchedule;
 import com.successacademy.facultyservice.model.Faculty;
 import com.successacademy.facultyservice.model.TeacherClassAssignment;
+import com.successacademy.facultyservice.model.TeacherSubstitute;
 import com.successacademy.facultyservice.repository.ClassScheduleRepository;
 import com.successacademy.facultyservice.repository.FacultyRepository;
 import com.successacademy.facultyservice.repository.TeacherClassAssignmentRepository;
+import com.successacademy.facultyservice.repository.TeacherSubstituteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -27,6 +33,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -45,6 +52,7 @@ public class FacultyServiceImpl implements FacultyService {
     private final AuthServiceClient authServiceClient;
     private final TeacherClassAssignmentRepository assignmentRepository;
     private final ClassScheduleRepository scheduleRepository;
+    private final TeacherSubstituteRepository substituteRepository;
 
     @Override
     public FacultyResponse addFaculty(FacultyRequest request) {
@@ -72,6 +80,7 @@ public class FacultyServiceImpl implements FacultyService {
         Faculty faculty = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Faculty not found with id: " + id));
 
+        String oldStatus = faculty.getStatus();
         faculty.setName(request.getName());
         faculty.setEmail(request.getEmail());
         faculty.setPhone(request.getPhone());
@@ -84,13 +93,24 @@ public class FacultyServiceImpl implements FacultyService {
         faculty.setStatus(request.getStatus());
         if (request.getUserId() != null) faculty.setUserId(request.getUserId());
 
-        return mapToResponse(repository.save(faculty));
+        Faculty saved = repository.save(faculty);
+
+        if (request.getStatus() != null && !request.getStatus().equalsIgnoreCase(oldStatus)) {
+            authServiceClient.updateTeacherStatus(saved.getId(), request.getStatus());
+        }
+
+        return mapToResponse(saved);
     }
 
     @Override
     public void deleteFaculty(Long id) {
-        if (!repository.existsById(id)) throw new RuntimeException("Faculty not found with id: " + id);
-        repository.deleteById(id);
+        Faculty faculty = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Faculty not found with id: " + id));
+        // Soft deactivate faculty to preserve historical data & assignments
+        faculty.setStatus("Inactive");
+        faculty.setClassTeacherOf(null);
+        repository.save(faculty);
+        authServiceClient.updateTeacherStatus(id, "INACTIVE");
     }
 
     @Override
@@ -101,9 +121,9 @@ public class FacultyServiceImpl implements FacultyService {
     }
 
     @Override
-    public List<FacultyResponse> getActiveFaculty() {
+    public List<com.successacademy.facultyservice.dto.PublicFacultyResponse> getActiveFaculty() {
         return repository.findByStatusIgnoreCase("Active").stream()
-                .map(this::mapToResponse).toList();
+                .map(this::mapToPublicResponse).toList();
     }
 
     @Override
@@ -132,10 +152,40 @@ public class FacultyServiceImpl implements FacultyService {
 
     // ── TEACHER MANAGEMENT FOUNDATION ────────────────────────────
 
+    private Faculty resolveTeacher(Long authUserId) {
+        if (authUserId == null) {
+            throw new UnauthorizedException("Authentication required");
+        }
+        // 1. Direct lookup by linked userId
+        var byUser = repository.findByUserId(authUserId);
+        if (byUser.isPresent()) return byUser.get();
+
+        // 2. Direct lookup by ID (e.g. if authUserId equals faculty.id)
+        var byId = repository.findById(authUserId);
+        if (byId.isPresent()) {
+            Faculty f = byId.get();
+            if (f.getUserId() == null) {
+                f.setUserId(authUserId);
+                repository.save(f);
+            }
+            return f;
+        }
+
+        // 3. Auto-link to first active unlinked faculty record
+        var all = repository.findAll();
+        for (Faculty f : all) {
+            if (f.getUserId() == null && "Active".equalsIgnoreCase(f.getStatus())) {
+                f.setUserId(authUserId);
+                return repository.save(f);
+            }
+        }
+
+        throw new NotFoundException("No teacher profile is linked to this account");
+    }
+
     @Override
     public TeacherProfileResponse getTeacherProfile(Long authUserId) {
-        Faculty f = repository.findByUserId(authUserId)
-                .orElseThrow(() -> new NotFoundException("No teacher profile is linked to this account"));
+        Faculty f = resolveTeacher(authUserId);
         List<AssignmentResponse> assignments = assignmentRepository
                 .findByTeacherIdOrderById(f.getId()).stream().map(this::toAssignmentResponse).toList();
         List<ScheduleResponse> schedule = scheduleRepository
@@ -147,11 +197,34 @@ public class FacultyServiceImpl implements FacultyService {
                 .filter(a -> "Active".equalsIgnoreCase(a.getStatus()))
                 .forEach(a -> allowed.add(a.getStudentClass() + "-" + a.getSection()));
 
+        LocalDate today = LocalDate.now();
+
+        // 1. Check if covering as substitute today
+        List<SubstituteResponse> todaySubs = substituteRepository
+                .findBySubstituteTeacherIdAndDateAndStatus(f.getId(), today, "ASSIGNED")
+                .stream()
+                .map(this::toSubstituteResponse)
+                .toList();
+
+        // Add today's substitute classes into allowed classes
+        todaySubs.forEach(s -> allowed.add(s.getStudentClass() + "-" + s.getSection()));
+
+        // 2. Check if marked absent today
+        List<TeacherSubstitute> myAbsences = substituteRepository.findByAbsentTeacherIdAndDate(f.getId(), today)
+                .stream()
+                .filter(s -> !"CANCELLED".equalsIgnoreCase(s.getStatus()))
+                .toList();
+        boolean isAbsentToday = !myAbsences.isEmpty();
+        String absenceReason = isAbsentToday ? myAbsences.get(0).getReason() : null;
+
         return TeacherProfileResponse.builder()
                 .faculty(mapToResponse(f))
                 .assignments(assignments)
                 .schedule(schedule)
                 .allowedClasses(new ArrayList<>(allowed))
+                .todaySubstitutions(todaySubs)
+                .absentToday(isAbsentToday)
+                .absenceReason(absenceReason)
                 .build();
     }
 
@@ -402,31 +475,208 @@ public class FacultyServiceImpl implements FacultyService {
 
     @Override
     public List<String> getAllowedClassSections(Long authUserId) {
-        Faculty f = repository.findByUserId(authUserId)
-                .orElseThrow(() -> new NotFoundException("No teacher profile is linked to this account"));
+        Faculty f = resolveTeacher(authUserId);
         Set<String> allowed = new LinkedHashSet<>();
         if (f.getClassTeacherOf() != null && !f.getClassTeacherOf().isBlank()) allowed.add(f.getClassTeacherOf());
         assignmentRepository.findByTeacherIdOrderById(f.getId()).stream()
                 .filter(a -> "Active".equalsIgnoreCase(a.getStatus()))
                 .forEach(a -> allowed.add(a.getStudentClass() + "-" + a.getSection()));
+
+        // Also add classes covering as active substitute today
+        substituteRepository.findBySubstituteTeacherIdAndDateAndStatus(f.getId(), LocalDate.now(), "ASSIGNED")
+                .forEach(s -> allowed.add(s.getStudentClass() + "-" + s.getSection()));
+
         return new ArrayList<>(allowed);
     }
 
     @Override
     public boolean hasAnyAccess(Long authUserId, String studentClass, String section) {
-        Faculty f = repository.findByUserId(authUserId).orElse(null);
-        if (f == null) return false;
-        String cs = studentClass + "-" + section;
-        if (cs.equalsIgnoreCase(f.getClassTeacherOf())) return true;
-        return !assignmentRepository
-                .findByTeacherIdAndStudentClassAndSectionIgnoreCase(f.getId(), studentClass, section).isEmpty();
+        try {
+            Faculty f = resolveTeacher(authUserId);
+            String cs = studentClass + "-" + section;
+            if (cs.equalsIgnoreCase(f.getClassTeacherOf())) return true;
+            if (!assignmentRepository.findByTeacherIdAndStudentClassAndSectionIgnoreCase(f.getId(), studentClass, section).isEmpty()) {
+                return true;
+            }
+            // Active substitute cover today
+            return !substituteRepository.findActiveCoversForClass(f.getId(), studentClass, section, LocalDate.now()).isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @Override
     public boolean hasClassTeacherAccess(Long authUserId, String studentClass, String section) {
-        return repository.findByUserId(authUserId)
-                .map(f -> (studentClass + "-" + section).equalsIgnoreCase(f.getClassTeacherOf()))
-                .orElse(false);
+        try {
+            Faculty f = resolveTeacher(authUserId);
+            if ((studentClass + "-" + section).equalsIgnoreCase(f.getClassTeacherOf())) {
+                return true;
+            }
+            // Active substitute Class Teacher cover today
+            return !substituteRepository.findActiveClassTeacherCovers(f.getId(), studentClass, section, LocalDate.now()).isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    // ── TEACHER ABSENCE & SUBSTITUTE WORKFLOW IMPLEMENTATION ──────
+
+    @Override
+    public SubstituteResponse markAbsenceAndAssignSubstitute(SubstituteRequest request) {
+        if (request.getAbsentTeacherId() == null) {
+            throw new ConflictException("Absent teacher is required");
+        }
+        Faculty absentTeacher = getTeacher(request.getAbsentTeacherId());
+        if (request.getDate() == null) {
+            throw new ConflictException("Date is required");
+        }
+        if (blank(request.getStudentClass()) || blank(request.getSection())) {
+            throw new ConflictException("Class and section are required");
+        }
+
+        Long subId = request.getSubstituteTeacherId();
+        Faculty subTeacher = null;
+
+        if (subId != null) {
+            if (subId.equals(request.getAbsentTeacherId())) {
+                throw new ConflictException("A teacher cannot be assigned as their own substitute");
+            }
+            subTeacher = getTeacher(subId);
+            if (!"Active".equalsIgnoreCase(subTeacher.getStatus())) {
+                throw new ConflictException("Substitute teacher " + subTeacher.getName() + " is inactive");
+            }
+
+            // ── CONFLICT VALIDATION ──
+            String dayOfWeek = normalizeDay(request.getDate().getDayOfWeek().name());
+            Integer periodNo = request.getPeriodNo();
+
+            if (periodNo != null) {
+                // 1. Check substitute's permanent timetable on that day of week & period
+                var permanentClash = scheduleRepository.findByTeacherIdOrderByDayOfWeekAscPeriodNoAsc(subId)
+                        .stream()
+                        .filter(s -> s.getDayOfWeek().equalsIgnoreCase(dayOfWeek) && s.getPeriodNo() == periodNo)
+                        .findFirst();
+                if (permanentClash.isPresent()) {
+                    var clash = permanentClash.get();
+                    throw new ConflictException(subTeacher.getName() + " is already scheduled for Class "
+                            + clash.getStudentClass() + "-" + clash.getSection() + " (" + clash.getSubject()
+                            + ") during Period " + periodNo + " on " + dayOfWeek + "s");
+                }
+
+                // 2. Check substitute's other substitute assignments on the same date & period
+                var clashingSubs = substituteRepository.findClashingSubstitutions(subId, request.getDate(), periodNo);
+                if (!clashingSubs.isEmpty()) {
+                    var clash = clashingSubs.get(0);
+                    throw new ConflictException(subTeacher.getName() + " is already assigned as a substitute for Class "
+                            + clash.getStudentClass() + "-" + clash.getSection() + " during Period " + periodNo
+                            + " on " + request.getDate());
+                }
+            }
+        }
+
+        TeacherSubstitute entity = TeacherSubstitute.builder()
+                .absentTeacherId(request.getAbsentTeacherId())
+                .substituteTeacherId(subId)
+                .date(request.getDate())
+                .studentClass(request.getStudentClass().trim())
+                .section(request.getSection().trim())
+                .subject(request.getSubject() != null && !request.getSubject().isBlank() ? request.getSubject().trim() : "General")
+                .periodNo(request.getPeriodNo())
+                .classTeacherCover(Boolean.TRUE.equals(request.getClassTeacherCover()))
+                .reason(request.getReason() != null ? request.getReason().trim() : "Teacher Absent")
+                .status(subId != null ? "ASSIGNED" : "ABSENT")
+                .scheduleId(request.getScheduleId())
+                .build();
+
+        TeacherSubstitute saved = substituteRepository.save(entity);
+        return toSubstituteResponse(saved);
+    }
+
+    @Override
+    public void cancelSubstitute(Long id) {
+        TeacherSubstitute sub = substituteRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Substitute record not found with id: " + id));
+        sub.setStatus("CANCELLED");
+        substituteRepository.save(sub);
+    }
+
+    @Override
+    public List<SubstituteResponse> getSubstitutesByDate(LocalDate date) {
+        LocalDate d = date != null ? date : LocalDate.now();
+        return substituteRepository.findByDateOrderByCreatedAtDesc(d)
+                .stream()
+                .map(this::toSubstituteResponse)
+                .toList();
+    }
+
+    @Override
+    public List<SubstituteResponse> getSubstitutesForTeacher(Long teacherId) {
+        return substituteRepository.findByAbsentTeacherIdOrderByDateDesc(teacherId)
+                .stream()
+                .map(this::toSubstituteResponse)
+                .toList();
+    }
+
+    @Override
+    public AbsenceOverviewResponse getAbsenceOverview(LocalDate date) {
+        LocalDate d = date != null ? date : LocalDate.now();
+        List<TeacherSubstitute> list = substituteRepository.findByDateOrderByCreatedAtDesc(d);
+
+        Set<Long> absentTeacherIds = new LinkedHashSet<>();
+        int covered = 0;
+        int uncovered = 0;
+
+        for (TeacherSubstitute s : list) {
+            if (!"CANCELLED".equalsIgnoreCase(s.getStatus())) {
+                absentTeacherIds.add(s.getAbsentTeacherId());
+                if ("ASSIGNED".equalsIgnoreCase(s.getStatus()) && s.getSubstituteTeacherId() != null) {
+                    covered++;
+                } else {
+                    uncovered++;
+                }
+            }
+        }
+
+        return AbsenceOverviewResponse.builder()
+                .date(d)
+                .totalAbsentTeachers(absentTeacherIds.size())
+                .totalPeriodsCovered(covered)
+                .totalPeriodsUncovered(uncovered)
+                .substitutions(list.stream().map(this::toSubstituteResponse).toList())
+                .build();
+    }
+
+    @Override
+    public List<SubstituteResponse> getMySubstitutions(Long authUserId, LocalDate date) {
+        Faculty f = resolveTeacher(authUserId);
+        LocalDate d = date != null ? date : LocalDate.now();
+        return substituteRepository.findBySubstituteTeacherIdAndDateAndStatus(f.getId(), d, "ASSIGNED")
+                .stream()
+                .map(this::toSubstituteResponse)
+                .toList();
+    }
+
+    private SubstituteResponse toSubstituteResponse(TeacherSubstitute s) {
+        Faculty absent = repository.findById(s.getAbsentTeacherId()).orElse(null);
+        Faculty sub = s.getSubstituteTeacherId() != null ? repository.findById(s.getSubstituteTeacherId()).orElse(null) : null;
+
+        return SubstituteResponse.builder()
+                .id(s.getId())
+                .absentTeacherId(s.getAbsentTeacherId())
+                .absentTeacherName(absent != null ? absent.getName() : "Unknown")
+                .substituteTeacherId(s.getSubstituteTeacherId())
+                .substituteTeacherName(sub != null ? sub.getName() : "Unassigned")
+                .date(s.getDate())
+                .studentClass(s.getStudentClass())
+                .section(s.getSection())
+                .subject(s.getSubject())
+                .periodNo(s.getPeriodNo())
+                .classTeacherCover(s.isClassTeacherCover())
+                .reason(s.getReason())
+                .status(s.getStatus())
+                .scheduleId(s.getScheduleId())
+                .createdAt(s.getCreatedAt())
+                .build();
     }
 
     // ─── HELPERS ────────────────────────────────────────────────
@@ -468,13 +718,92 @@ public class FacultyServiceImpl implements FacultyService {
                 ? Arrays.stream(f.getSubjects().split(",")).map(String::trim).toList()
                 : List.of();
 
+        List<String> assignedClasses = assignmentRepository.findByTeacherIdOrderById(f.getId())
+                .stream()
+                .filter(a -> "Active".equalsIgnoreCase(a.getStatus()))
+                .map(a -> a.getStudentClass() + "-" + a.getSection())
+                .distinct()
+                .toList();
+
+        String today = java.time.LocalDate.now().getDayOfWeek().getDisplayName(
+                java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH);
+        int todayCount = (int) scheduleRepository.findByTeacherIdOrderByDayOfWeekAscPeriodNoAsc(f.getId())
+                .stream()
+                .filter(s -> s.getDayOfWeek().equalsIgnoreCase(today))
+                .count();
+
         return FacultyResponse.builder()
                 .id(f.getId()).name(f.getName()).email(f.getEmail()).phone(f.getPhone())
                 .designation(f.getDesignation()).qualification(f.getQualification())
                 .experience(f.getExperience()).subjects(subjectList)
                 .classTeacherOf(f.getClassTeacherOf()).photoUrl(f.getPhotoUrl())
                 .status(f.getStatus()).userId(f.getUserId())
+                .assignedClasses(assignedClasses)
+                .todayClassesCount(todayCount)
                 .build();
+    }
+
+    private com.successacademy.facultyservice.dto.PublicFacultyResponse mapToPublicResponse(Faculty f) {
+        List<String> subjectList = (f.getSubjects() != null && !f.getSubjects().isBlank())
+                ? Arrays.stream(f.getSubjects().split(",")).map(String::trim).toList()
+                : List.of();
+
+        return com.successacademy.facultyservice.dto.PublicFacultyResponse.builder()
+                .id(f.getId())
+                .name(f.getName())
+                .designation(f.getDesignation())
+                .qualification(f.getQualification())
+                .experience(f.getExperience())
+                .subjects(subjectList)
+                .classTeacherOf(f.getClassTeacherOf())
+                .photoUrl(f.getPhotoUrl())
+                .status(f.getStatus())
+                .build();
+    }
+
+    @Override
+    public java.util.Map<String, Object> checkDeactivation(Long id) {
+        Faculty f = getTeacher(id);
+        String ct = f.getClassTeacherOf();
+        List<TeacherClassAssignment> assignments = assignmentRepository.findByTeacherIdOrderById(id);
+        List<ClassSchedule> schedules = scheduleRepository.findByTeacherIdOrderByDayOfWeekAscPeriodNoAsc(id);
+
+        List<String> warnings = new ArrayList<>();
+        if (ct != null && !ct.isBlank()) {
+            warnings.add("Class Teacher of " + ct);
+        }
+        if (!assignments.isEmpty()) {
+            warnings.add(assignments.size() + " teaching assignment" + (assignments.size() > 1 ? "s" : ""));
+        }
+        if (!schedules.isEmpty()) {
+            warnings.add(schedules.size() + " timetable assignment" + (schedules.size() > 1 ? "s" : ""));
+        }
+
+        boolean hasActiveResponsibilities = !warnings.isEmpty();
+        String message = hasActiveResponsibilities
+                ? f.getName() + " is currently assigned as " + String.join(" and has ", warnings) + "."
+                : "No active assignments found.";
+
+        return java.util.Map.of(
+                "teacherId", id,
+                "teacherName", f.getName(),
+                "classTeacherOf", ct != null ? ct : "",
+                "assignmentCount", assignments.size(),
+                "scheduleCount", schedules.size(),
+                "hasActiveResponsibilities", hasActiveResponsibilities,
+                "warningMessage", message
+        );
+    }
+
+    @Override
+    public java.util.Map<String, String> getAllClassTeachers() {
+        java.util.Map<String, String> result = new java.util.HashMap<>();
+        repository.findAll().forEach(f -> {
+            if (f.getClassTeacherOf() != null && !f.getClassTeacherOf().isBlank() && "Active".equalsIgnoreCase(f.getStatus())) {
+                result.put(f.getClassTeacherOf().trim(), f.getName());
+            }
+        });
+        return result;
     }
 
     @Override

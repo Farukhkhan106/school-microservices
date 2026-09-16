@@ -1,18 +1,23 @@
 package com.successacademy.facultyservice.controller;
 
+import com.successacademy.facultyservice.dto.AbsenceOverviewResponse;
 import com.successacademy.facultyservice.dto.AssignmentRequest;
 import com.successacademy.facultyservice.dto.AssignmentResponse;
 import com.successacademy.facultyservice.dto.FacultyResponse;
 import com.successacademy.facultyservice.dto.ScheduleRequest;
 import com.successacademy.facultyservice.dto.ScheduleResponse;
+import com.successacademy.facultyservice.dto.SubstituteRequest;
+import com.successacademy.facultyservice.dto.SubstituteResponse;
 import com.successacademy.facultyservice.dto.TeacherProfileResponse;
 import com.successacademy.facultyservice.exception.UnauthorizedException;
 import com.successacademy.facultyservice.security.UserContext;
 import com.successacademy.facultyservice.service.FacultyService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -39,6 +44,20 @@ public class TeacherAssignmentController {
                                               HttpServletRequest request) {
         UserContext.requireRole(request, "ADMIN");
         return service.assignClassTeacher(id, classTeacherOf, replace);
+    }
+
+    /** Returns currently active Class Teacher assignments { "8-A": "Priya Sharma", ... } */
+    @GetMapping("/class-teachers")
+    public Map<String, String> allClassTeachers(HttpServletRequest request) {
+        UserContext.requireRole(request, "ADMIN");
+        return service.getAllClassTeachers();
+    }
+
+    /** Pre-check assignments before deactivating a teacher */
+    @GetMapping("/{id}/check-deactivation")
+    public Map<String, Object> checkDeactivation(@PathVariable Long id, HttpServletRequest request) {
+        UserContext.requireRole(request, "ADMIN");
+        return service.checkDeactivation(id);
     }
 
     // ── ADMIN: subject-teacher assignments ───────────────────────
@@ -86,8 +105,14 @@ public class TeacherAssignmentController {
     public List<ScheduleResponse> classSchedule(@RequestParam String studentClass,
                                                 @RequestParam String section,
                                                 HttpServletRequest request) {
-        UserContext.requireRole(request, "ADMIN");
+        UserContext.requireRole(request, "ADMIN", "TEACHER", "STUDENT");
         return service.getSchedulesByClass(studentClass, section);
+    }
+
+    @GetMapping("/schedule/teacher/{teacherId}")
+    public List<ScheduleResponse> teacherSchedule(@PathVariable Long teacherId, HttpServletRequest request) {
+        UserContext.requireRole(request, "ADMIN");
+        return service.getSchedulesByTeacher(teacherId);
     }
 
     @PostMapping("/schedule")
@@ -109,6 +134,42 @@ public class TeacherAssignmentController {
         service.deleteSchedule(id);
     }
 
+    // ── ADMIN: teacher absence & substitute workflow ────────────
+
+    @PostMapping("/substitutes")
+    public SubstituteResponse assignSubstitute(@RequestBody SubstituteRequest r, HttpServletRequest request) {
+        UserContext.requireRole(request, "ADMIN");
+        return service.markAbsenceAndAssignSubstitute(r);
+    }
+
+    @GetMapping("/substitutes")
+    public List<SubstituteResponse> getSubstitutes(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            HttpServletRequest request) {
+        UserContext.requireRole(request, "ADMIN");
+        return service.getSubstitutesByDate(date);
+    }
+
+    @GetMapping("/substitutes/teacher/{teacherId}")
+    public List<SubstituteResponse> getSubstitutesByTeacher(@PathVariable Long teacherId, HttpServletRequest request) {
+        UserContext.requireRole(request, "ADMIN");
+        return service.getSubstitutesForTeacher(teacherId);
+    }
+
+    @DeleteMapping("/substitutes/{id}")
+    public void cancelSubstitute(@PathVariable Long id, HttpServletRequest request) {
+        UserContext.requireRole(request, "ADMIN");
+        service.cancelSubstitute(id);
+    }
+
+    @GetMapping("/substitutes/overview")
+    public AbsenceOverviewResponse getAbsenceOverview(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            HttpServletRequest request) {
+        UserContext.requireRole(request, "ADMIN");
+        return service.getAbsenceOverview(date);
+    }
+
     // ── TEACHER (identity ALWAYS from gateway headers) ───────────
 
     @GetMapping("/teacher/me")
@@ -128,6 +189,14 @@ public class TeacherAssignmentController {
         UserContext.requireRole(request, "TEACHER", "ADMIN");
         return service.getSchedulesByTeacher(
                 service.getTeacherProfile(requireUserId(request)).getFaculty().getId());
+    }
+
+    @GetMapping("/teacher/substitutions")
+    public List<SubstituteResponse> mySubstitutions(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            HttpServletRequest request) {
+        UserContext.requireRole(request, "TEACHER", "ADMIN");
+        return service.getMySubstitutions(requireUserId(request), date);
     }
 
     /** Frontend uses this to know what the logged-in teacher may do for a class. */

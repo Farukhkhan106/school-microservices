@@ -25,6 +25,16 @@ public final class UserContext {
         }
     }
 
+    public static Long teacherId(HttpServletRequest request) {
+        String v = request.getHeader("X-Teacher-Id");
+        if (v == null || v.isBlank() || "null".equals(v)) return null;
+        try {
+            return Long.parseLong(v);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     public static String role(HttpServletRequest request) {
         String r = request.getHeader("X-User-Role");
         return r == null ? "" : r.trim();

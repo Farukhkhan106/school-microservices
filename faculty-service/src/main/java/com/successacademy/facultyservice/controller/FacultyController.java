@@ -69,7 +69,7 @@ public class FacultyController {
 
     // Active faculty for public website faculty page
     @GetMapping("/public")
-    public ResponseEntity<List<FacultyResponse>> publicFaculty() {
+    public ResponseEntity<List<com.successacademy.facultyservice.dto.PublicFacultyResponse>> publicFaculty() {
         return ResponseEntity.ok(service.getActiveFaculty());
     }
 

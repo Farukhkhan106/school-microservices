@@ -59,6 +59,16 @@ public class JwtUtil {
         }
     }
 
+    /** Linked teacher id claim (null for non-teachers). */
+    public Long extractTeacherId(String token) {
+        try {
+            Object v = parse(token).get("teacherId");
+            return v instanceof Number ? ((Number) v).longValue() : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public String extractRole(String token) {
         try {
             return parse(token).get("role", String.class);

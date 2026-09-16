@@ -96,6 +96,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                         .header("X-User-Id", String.valueOf(jwtUtil.extractUserId(token)))
                         .header("X-User-Role", jwtUtil.extractRole(token) == null ? "" : jwtUtil.extractRole(token))
                         .header("X-Student-Id", String.valueOf(jwtUtil.extractStudentId(token)))
+                        .header("X-Teacher-Id", String.valueOf(jwtUtil.extractTeacherId(token)))
                         .build())
                 .build();
 
