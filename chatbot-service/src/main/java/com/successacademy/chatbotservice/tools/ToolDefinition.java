@@ -15,6 +15,7 @@ import java.util.Map;
 public class ToolDefinition {
 
     private String name;
+    private String domain;
     private String description;
     private List<String> allowedRoles; // e.g. ["STUDENT"], ["TEACHER"], ["ADMIN"], ["ALL"]
     private Map<String, Object> parameters;
