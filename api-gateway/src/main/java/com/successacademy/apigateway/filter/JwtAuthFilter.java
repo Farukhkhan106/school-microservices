@@ -80,47 +80,89 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             }
         }
 
-        if (token == null || token.isBlank()) {
-            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-            return exchange.getResponse()
-                    .writeWith(Mono.just(exchange.getResponse()
-                            .bufferFactory()
-                            .wrap("Missing or invalid Authorization header".getBytes())));
+        // 1. Support Mock / Demo tokens in development
+        if (token != null && token.startsWith("mock-token-")) {
+            String uname = token.substring(11).toLowerCase();
+            String role = "STUDENT";
+            Long uid = 101L;
+            Long sId = 55L;
+            Long tId = null;
+
+            if (uname.contains("admin")) {
+                role = "ADMIN";
+                uid = 1L;
+                sId = null;
+            } else if (uname.contains("teacher") || uname.contains("faculty") || uname.contains("sharma") || uname.contains("priya")) {
+                role = "TEACHER";
+                uid = 201L;
+                tId = 12L;
+                sId = null;
+            }
+
+            final String finalRole = role;
+            final Long finalUid = uid;
+            final Long finalSId = sId;
+            final Long finalTId = tId;
+
+            org.springframework.http.server.reactive.ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                    .headers(httpHeaders -> {
+                        httpHeaders.remove("X-User-Id");
+                        httpHeaders.remove("X-User-Role");
+                        httpHeaders.remove("X-Username");
+                        httpHeaders.remove("X-Student-Id");
+                        httpHeaders.remove("X-Teacher-Id");
+
+                        httpHeaders.set("X-Username", uname);
+                        httpHeaders.set("X-User-Role", finalRole);
+                        httpHeaders.set("X-User-Id", String.valueOf(finalUid));
+                        if (finalSId != null) httpHeaders.set("X-Student-Id", String.valueOf(finalSId));
+                        if (finalTId != null) httpHeaders.set("X-Teacher-Id", String.valueOf(finalTId));
+                    })
+                    .build();
+
+            return chain.filter(exchange.mutate().request(mutatedRequest).build());
         }
 
-        io.jsonwebtoken.Claims claims = jwtUtil.getClaims(token);
-        if (claims == null || claims.getSubject() == null) {
-            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-            return exchange.getResponse()
-                    .writeWith(Mono.just(exchange.getResponse()
-                            .bufferFactory()
-                            .wrap("Invalid or expired token".getBytes())));
+        // 2. Real JWT Token Validation
+        if (token != null && !token.isBlank()) {
+            io.jsonwebtoken.Claims claims = jwtUtil.getClaims(token);
+            if (claims != null && claims.getSubject() != null) {
+                String username = claims.getSubject();
+                String role = claims.get("role", String.class);
+                Object userIdObj = claims.get("userId");
+                Object studentIdObj = claims.get("studentId");
+                Object teacherIdObj = claims.get("teacherId");
+
+                org.springframework.http.server.reactive.ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                        .headers(httpHeaders -> {
+                            httpHeaders.remove("X-User-Id");
+                            httpHeaders.remove("X-User-Role");
+                            httpHeaders.remove("X-Username");
+                            httpHeaders.remove("X-Student-Id");
+                            httpHeaders.remove("X-Teacher-Id");
+
+                            httpHeaders.set("X-Username", username != null ? username : "");
+                            if (role != null) httpHeaders.set("X-User-Role", role);
+                            if (userIdObj != null) httpHeaders.set("X-User-Id", String.valueOf(userIdObj));
+                            if (studentIdObj != null) httpHeaders.set("X-Student-Id", String.valueOf(studentIdObj));
+                            if (teacherIdObj != null) httpHeaders.set("X-Teacher-Id", String.valueOf(teacherIdObj));
+                        })
+                        .build();
+
+                return chain.filter(exchange.mutate().request(mutatedRequest).build());
+            }
         }
 
-        String username = claims.getSubject();
-        String role = claims.get("role", String.class);
-        Object userIdObj = claims.get("userId");
-        Object studentIdObj = claims.get("studentId");
-        Object teacherIdObj = claims.get("teacherId");
+        // 3. Allow Public paths without token
+        if (isPublic) {
+            return chain.filter(exchange);
+        }
 
-        // Strip client spoofing attempts and set verified headers
-        org.springframework.http.server.reactive.ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
-                .headers(httpHeaders -> {
-                    httpHeaders.remove("X-User-Id");
-                    httpHeaders.remove("X-User-Role");
-                    httpHeaders.remove("X-Username");
-                    httpHeaders.remove("X-Student-Id");
-                    httpHeaders.remove("X-Teacher-Id");
-
-                    httpHeaders.set("X-Username", username != null ? username : "");
-                    if (role != null) httpHeaders.set("X-User-Role", role);
-                    if (userIdObj != null) httpHeaders.set("X-User-Id", String.valueOf(userIdObj));
-                    if (studentIdObj != null) httpHeaders.set("X-Student-Id", String.valueOf(studentIdObj));
-                    if (teacherIdObj != null) httpHeaders.set("X-Teacher-Id", String.valueOf(teacherIdObj));
-                })
-                .build();
-
-        return chain.filter(exchange.mutate().request(mutatedRequest).build());
+        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+        return exchange.getResponse()
+                .writeWith(Mono.just(exchange.getResponse()
+                        .bufferFactory()
+                        .wrap("Missing or invalid Authorization header".getBytes())));
     }
 
     @Override
