@@ -37,12 +37,12 @@ public class SecurityConfig {
             } else if (origin != null && Arrays.stream(allowedOrigins.split(","))
                     .map(String::trim)
                     .anyMatch(o -> o.equalsIgnoreCase(origin))) {
-                // Echo back the whitelisted origin
                 headers.set("Access-Control-Allow-Origin", origin);
+                headers.set("Access-Control-Allow-Credentials", "true");
             }
 
             headers.set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS,PATCH");
-            headers.set("Access-Control-Allow-Headers", "Authorization,Content-Type,Accept,Origin");
+            headers.set("Access-Control-Allow-Headers", "Authorization,Content-Type,Accept,Origin,X-Requested-With,Sec-WebSocket-Key,Sec-WebSocket-Version,Sec-WebSocket-Extensions,Sec-WebSocket-Protocol,X-Authorization");
             headers.set("Access-Control-Max-Age",       "3600");
 
             if (exchange.getRequest().getMethod() == HttpMethod.OPTIONS) {

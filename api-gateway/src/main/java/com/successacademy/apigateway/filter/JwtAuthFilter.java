@@ -66,12 +66,21 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
-        // All other paths require a valid Bearer token
-        String authHeader = exchange.getRequest()
-                .getHeaders()
-                .getFirst("Authorization");
+        // Extract Bearer token from Authorization header or from query param for WebSocket handshake
+        String token = null;
+        String authHeader = exchange.getRequest().getHeaders().getFirst("Authorization");
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7).trim();
+        } else if (path.contains("/communication-service/ws")) {
+            // WebSocket STOMP/SockJS handshake query param support
+            String paramToken = exchange.getRequest().getQueryParams().getFirst("token");
+            if (paramToken != null && !paramToken.isBlank()) {
+                token = paramToken.trim();
+            }
+        }
+
+        if (token == null || token.isBlank()) {
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse()
                     .writeWith(Mono.just(exchange.getResponse()
@@ -79,9 +88,8 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                             .wrap("Missing or invalid Authorization header".getBytes())));
         }
 
-        String token = authHeader.substring(7);
-
-        if (jwtUtil.validateToken(token) == null) {
+        io.jsonwebtoken.Claims claims = jwtUtil.getClaims(token);
+        if (claims == null || claims.getSubject() == null) {
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse()
                     .writeWith(Mono.just(exchange.getResponse()
@@ -89,7 +97,30 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                             .wrap("Invalid or expired token".getBytes())));
         }
 
-        return chain.filter(exchange);
+        String username = claims.getSubject();
+        String role = claims.get("role", String.class);
+        Object userIdObj = claims.get("userId");
+        Object studentIdObj = claims.get("studentId");
+        Object teacherIdObj = claims.get("teacherId");
+
+        // Strip client spoofing attempts and set verified headers
+        org.springframework.http.server.reactive.ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                .headers(httpHeaders -> {
+                    httpHeaders.remove("X-User-Id");
+                    httpHeaders.remove("X-User-Role");
+                    httpHeaders.remove("X-Username");
+                    httpHeaders.remove("X-Student-Id");
+                    httpHeaders.remove("X-Teacher-Id");
+
+                    httpHeaders.set("X-Username", username != null ? username : "");
+                    if (role != null) httpHeaders.set("X-User-Role", role);
+                    if (userIdObj != null) httpHeaders.set("X-User-Id", String.valueOf(userIdObj));
+                    if (studentIdObj != null) httpHeaders.set("X-Student-Id", String.valueOf(studentIdObj));
+                    if (teacherIdObj != null) httpHeaders.set("X-Teacher-Id", String.valueOf(teacherIdObj));
+                })
+                .build();
+
+        return chain.filter(exchange.mutate().request(mutatedRequest).build());
     }
 
     @Override

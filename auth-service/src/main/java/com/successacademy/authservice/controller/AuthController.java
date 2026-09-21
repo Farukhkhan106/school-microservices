@@ -39,6 +39,22 @@ public class AuthController {
         return ResponseEntity.ok(authService.usernameExists(username));
     }
 
+    // ── Get user summary by username (internal / communication) ───
+    @GetMapping("/user/{username}")
+    public ResponseEntity<UserSummary> getUserByUsername(@PathVariable String username) {
+        return userRepository.findByUsername(username.toLowerCase().trim())
+                .map(u -> ResponseEntity.ok(new UserSummary(u.getId(), u.getUsername(), u.getEmail(), u.getRole(), u.getStudentId(), u.getTeacherId())))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // ── Get user summary by id (internal / communication) ─────────
+    @GetMapping("/user-by-id/{id}")
+    public ResponseEntity<UserSummary> getUserById(@PathVariable Long id) {
+        return userRepository.findById(id)
+                .map(u -> ResponseEntity.ok(new UserSummary(u.getId(), u.getUsername(), u.getEmail(), u.getRole(), u.getStudentId(), u.getTeacherId())))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     // ── Change password ───────────────────────────────────────────
     @PostMapping("/change-password")
     public ResponseEntity<String> changePassword(@RequestBody Map<String, String> body) {

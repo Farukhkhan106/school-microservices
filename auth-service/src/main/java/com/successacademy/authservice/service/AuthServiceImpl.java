@@ -25,7 +25,13 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Invalid password");
         }
 
-        String token = jwtUtil.generateToken(user.getUsername(), user.getRole());
+        String token = jwtUtil.generateToken(
+                user.getUsername(),
+                user.getRole(),
+                user.getId(),
+                user.getStudentId(),
+                user.getTeacherId()
+        );
 
         return new LoginResponse(
                 user.getId(),

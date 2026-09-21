@@ -24,14 +24,27 @@ public class JwtUtil {
     }
 
     public String validateToken(String token) {
+        Claims claims = getClaims(token);
+        return claims != null ? claims.getSubject() : null;
+    }
+
+    public Claims getClaims(String token) {
         try {
-            Claims claims = Jwts.parser()
+            return Jwts.parserBuilder()
                     .setSigningKey(getKey())
+                    .build()
                     .parseClaimsJws(token)
                     .getBody();
-            return claims.getSubject();
         } catch (Exception e) {
-            return null;
+            try {
+                // Fallback to legacy parser if parserBuilder is unavailable
+                return Jwts.parser()
+                        .setSigningKey(getKey())
+                        .parseClaimsJws(token)
+                        .getBody();
+            } catch (Exception ex) {
+                return null;
+            }
         }
     }
 }

@@ -23,15 +23,28 @@ public class JwtUtil {
 
     private final long EXPIRATION = 1000 * 60 * 60 * 24; // 24 hours
 
-    // CREATE TOKEN
-    public String generateToken(String username, String role) {
-        return Jwts.builder()
+    // CREATE TOKEN (Overload with userId, studentId, teacherId)
+    public String generateToken(String username, String role, Long userId, Long studentId, Long teacherId) {
+        JwtBuilder builder = Jwts.builder()
                 .setSubject(username)
                 .claim("role", role)
+                .claim("userId", userId)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
-                .compact();
+                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION));
+
+        if (studentId != null) {
+            builder.claim("studentId", studentId);
+        }
+        if (teacherId != null) {
+            builder.claim("teacherId", teacherId);
+        }
+
+        return builder.signWith(getSigningKey(), SignatureAlgorithm.HS256).compact();
+    }
+
+    // Legacy overload
+    public String generateToken(String username, String role) {
+        return generateToken(username, role, null, null, null);
     }
 
     // VALIDATE TOKEN
@@ -49,12 +62,20 @@ public class JwtUtil {
         }
     }
 
+    public Claims extractClaims(String token) {
+        try {
+            return Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public String extractRole(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody()
-                .get("role", String.class);
+        Claims claims = extractClaims(token);
+        return claims != null ? claims.get("role", String.class) : null;
     }
 }

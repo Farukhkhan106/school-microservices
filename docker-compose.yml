@@ -1,0 +1,358 @@
+services:
+  # =================================================================
+  # 1. DATABASE (MySQL 8.0)
+  # =================================================================
+  mysql:
+    image: mysql:8.0
+    container_name: school-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-Farukh@106}
+      MYSQL_DATABASE: ${DB_NAME:-school_db}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - school-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-Farukh@106}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =================================================================
+  # 2. SERVICE DISCOVERY (Eureka Server)
+  # =================================================================
+  eureka-server:
+    build:
+      context: ./eureka-server
+      dockerfile: Dockerfile
+    container_name: school-eureka
+    restart: always
+    ports:
+      - "8761:8761"
+    environment:
+      PORT: 8761
+    networks:
+      - school-net
+
+  # =================================================================
+  # 3. AUTHENTICATION SERVICE
+  # =================================================================
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: school-auth-service
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+    environment:
+      PORT: 8084
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/authdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_ROOT_PASSWORD:-Farukh@106}
+      JWT_SECRET: ${JWT_SECRET:-MY_SUPER_SECRET_KEY_123456789012345}
+    networks:
+      - school-net
+
+  # =================================================================
+  # 4. STUDENT SERVICE
+  # =================================================================
+  student-service:
+    build:
+      context: ./student-service
+      dockerfile: Dockerfile
+    container_name: school-student-service
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+      auth-service:
+        condition: service_started
+    environment:
+      PORT: 8085
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/studentdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_ROOT_PASSWORD:-Farukh@106}
+      AUTH_SERVICE_URL: http://auth-service:8084
+    volumes:
+      - student_uploads:/app/uploads/students
+    networks:
+      - school-net
+
+  # =================================================================
+  # 5. FACULTY SERVICE
+  # =================================================================
+  faculty-service:
+    build:
+      context: ./faculty-service
+      dockerfile: Dockerfile
+    container_name: school-faculty-service
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+      auth-service:
+        condition: service_started
+    environment:
+      PORT: 8086
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/facultydb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_ROOT_PASSWORD:-Farukh@106}
+      AUTH_SERVICE_URL: http://auth-service:8084
+    volumes:
+      - faculty_uploads:/app/uploads/faculty
+    networks:
+      - school-net
+
+  # =================================================================
+  # 6. FEE SERVICE
+  # =================================================================
+  fee-service:
+    build:
+      context: ./fee-service
+      dockerfile: Dockerfile
+    container_name: school-fee-service
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+    environment:
+      PORT: 8087
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/feesdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_ROOT_PASSWORD:-Farukh@106}
+    networks:
+      - school-net
+
+  # =================================================================
+  # 7. ATTENDANCE SERVICE
+  # =================================================================
+  attendance-service:
+    build:
+      context: ./attendance-service
+      dockerfile: Dockerfile
+    container_name: school-attendance-service
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+    environment:
+      PORT: 8088
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/attendancedb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_ROOT_PASSWORD:-Farukh@106}
+    networks:
+      - school-net
+
+  # =================================================================
+  # 8. GALLERY SERVICE
+  # =================================================================
+  gallery-service:
+    build:
+      context: ./gallery-service
+      dockerfile: Dockerfile
+    container_name: school-gallery-service
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+    environment:
+      PORT: 8089
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/gallerydb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_ROOT_PASSWORD:-Farukh@106}
+      UPLOAD_DIR: uploads/gallery
+    volumes:
+      - gallery_uploads:/app/uploads/gallery
+    networks:
+      - school-net
+
+  # =================================================================
+  # 9. NOTICE SERVICE
+  # =================================================================
+  notice-service:
+    build:
+      context: ./notice-service
+      dockerfile: Dockerfile
+    container_name: school-notice-service
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+    environment:
+      PORT: 8081
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/noticedb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_ROOT_PASSWORD:-Farukh@106}
+    networks:
+      - school-net
+
+  # =================================================================
+  # 10. EVENT SERVICE
+  # =================================================================
+  event-service:
+    build:
+      context: ./event-service
+      dockerfile: Dockerfile
+    container_name: school-event-service
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+    environment:
+      PORT: 8082
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/eventdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_ROOT_PASSWORD:-Farukh@106}
+    networks:
+      - school-net
+
+  # =================================================================
+  # 11. CONTACT SERVICE
+  # =================================================================
+  contact-service:
+    build:
+      context: ./contact-service
+      dockerfile: Dockerfile
+    container_name: school-contact-service
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+    environment:
+      PORT: 8083
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/contact_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_ROOT_PASSWORD:-Farukh@106}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_TO: ${MAIL_TO:-}
+    networks:
+      - school-net
+
+  # =================================================================
+  # 12. CHATBOT SERVICE (AI Assistant)
+  # =================================================================
+  chatbot-service:
+    build:
+      context: ./chatbot-service
+      dockerfile: Dockerfile
+    container_name: school-chatbot-service
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+    environment:
+      PORT: 8090
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/chatbotdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_ROOT_PASSWORD:-Farukh@106}
+      AI_PROVIDER: ${AI_PROVIDER:-openai}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
+      AI_BASE_URL: ${AI_BASE_URL:-https://api.openai.com/v1}
+      STUDENT_SERVICE_URL: http://student-service:8085
+      FACULTY_SERVICE_URL: http://faculty-service:8086
+      ATTENDANCE_SERVICE_URL: http://attendance-service:8088
+      FEE_SERVICE_URL: http://fee-service:8087
+      NOTICE_SERVICE_URL: http://notice-service:8081
+      EVENT_SERVICE_URL: http://event-service:8082
+      CONTACT_SERVICE_URL: http://contact-service:8083
+    networks:
+      - school-net
+
+  # =================================================================
+  # 13. COMMUNICATION SERVICE (Internal Messaging & Announcements)
+  # =================================================================
+  communication-service:
+    build:
+      context: ./communication-service
+      dockerfile: Dockerfile
+    container_name: school-communication-service
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+      auth-service:
+        condition: service_started
+    environment:
+      PORT: 8091
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/communicationdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_ROOT_PASSWORD:-Farukh@106}
+      JWT_SECRET: ${JWT_SECRET:-MY_SUPER_SECRET_KEY_123456789012345}
+      AUTH_SERVICE_URL: http://auth-service:8084
+      STUDENT_SERVICE_URL: http://student-service:8085
+      FACULTY_SERVICE_URL: http://faculty-service:8086
+    networks:
+      - school-net
+
+  # =================================================================
+  # 14. API GATEWAY (Public Ingress)
+  # =================================================================
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: school-api-gateway
+    restart: always
+    ports:
+      - "9000:9000"
+    depends_on:
+      eureka-server:
+        condition: service_started
+    environment:
+      PORT: 9000
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://success-academy-frontend.vercel.app,http://localhost:3000}
+      JWT_SECRET: ${JWT_SECRET:-MY_SUPER_SECRET_KEY_123456789012345}
+    networks:
+      - school-net
+
+volumes:
+  mysql_data:
+  student_uploads:
+  faculty_uploads:
+  gallery_uploads:
+
+networks:
+  school-net:
+    driver: bridge
