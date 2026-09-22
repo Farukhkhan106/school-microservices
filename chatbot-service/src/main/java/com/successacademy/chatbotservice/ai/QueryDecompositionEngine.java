@@ -179,10 +179,18 @@ public class QueryDecompositionEngine {
             intents.add(timeIntent);
         }
 
-        // Check for Student Roster / Count intent
-        if (hasStudentRosterIntent(norm, raw, detectedClass)) {
-            SubIntent stuIntent = buildStudentRosterSubIntent(r, detectedClass, detectedSection, norm);
-            intents.add(stuIntent);
+        // Check for Student intent (Search student, Class students, Student statistics, Student profile)
+        if (hasStudentIntent(norm, raw)) {
+            String studentQuery = extractStudentSearchQuery(raw, norm);
+            if (studentQuery != null) {
+                intents.add(buildStudentSearchSubIntent(r, studentQuery));
+            } else if (!hasAttendanceIntent(norm, raw) && !hasFeeIntent(norm, raw) && !hasTimetableIntent(norm, raw)) {
+                // Pure student inquiry (e.g. "give me information about student", "students", "student details")
+                intents.add(buildStudentRosterSubIntent(r, detectedClass, detectedSection, norm));
+            } else if (norm.contains("and student") || norm.contains("student and") || norm.contains("student count") || norm.contains("total student") || norm.contains("roster") || detectedClass != null) {
+                // Explicit compound request or class specified
+                intents.add(buildStudentRosterSubIntent(r, detectedClass, detectedSection, norm));
+            }
         }
 
         // Check for Teacher / Faculty intent
@@ -235,14 +243,32 @@ public class QueryDecompositionEngine {
                 .build());
         }
 
-        // Check for Admin General Operational Summary intent
-        if ("ADMIN".equals(r) && (norm.contains("operational summary") || norm.contains("overview of school") || norm.contains("school summary") || norm.contains("overall status") || norm.contains("kya important hai"))) {
-            if (intents.isEmpty()) {
+        // Check for Public Inquiries / Contact Messages (Admin only)
+        if ("ADMIN".equals(r) && hasInquiryIntent(norm, raw)) {
+            intents.add(SubIntent.builder()
+                .domain("INQUIRIES")
+                .toolName("getPendingInquiries")
+                .parameters(Collections.emptyMap())
+                .authorized(true)
+                .build());
+        }
+
+        // Check for General Operational Summary / School Overview intent
+        if (intents.isEmpty() && hasSchoolOverviewIntent(norm, raw)) {
+            if ("ADMIN".equals(r)) {
                 intents.add(SubIntent.builder().domain("STUDENTS").toolName("getStudentStatistics").parameters(Collections.emptyMap()).authorized(true).build());
                 intents.add(SubIntent.builder().domain("TEACHERS").toolName("getFacultySummary").parameters(Collections.emptyMap()).authorized(true).build());
                 intents.add(SubIntent.builder().domain("ATTENDANCE").toolName("getAttendanceAnalytics").parameters(Collections.emptyMap()).authorized(true).build());
                 intents.add(SubIntent.builder().domain("FEES").toolName("getFeeAnalytics").parameters(Collections.emptyMap()).authorized(true).build());
                 intents.add(SubIntent.builder().domain("INQUIRIES").toolName("getPendingInquiries").parameters(Collections.emptyMap()).authorized(true).build());
+            } else if ("TEACHER".equals(r)) {
+                intents.add(SubIntent.builder().domain("NOTICES").toolName("getLatestNotices").parameters(Collections.emptyMap()).authorized(true).build());
+                intents.add(SubIntent.builder().domain("EVENTS").toolName("getUpcomingEvents").parameters(Collections.emptyMap()).authorized(true).build());
+                intents.add(SubIntent.builder().domain("CALENDAR").toolName("getAcademicCalendar").parameters(Collections.emptyMap()).authorized(true).build());
+            } else {
+                intents.add(SubIntent.builder().domain("FACILITIES").toolName("getSchoolFacilities").parameters(Collections.emptyMap()).authorized(true).build());
+                intents.add(SubIntent.builder().domain("EVENTS").toolName("getUpcomingEvents").parameters(Collections.emptyMap()).authorized(true).build());
+                intents.add(SubIntent.builder().domain("CALENDAR").toolName("getAcademicCalendar").parameters(Collections.emptyMap()).authorized(true).build());
             }
         }
 
@@ -377,6 +403,23 @@ public class QueryDecompositionEngine {
         }
     }
 
+    private SubIntent buildStudentSearchSubIntent(String role, String query) {
+        if ("STUDENT".equals(role)) {
+            return SubIntent.builder()
+                .domain("STUDENTS")
+                .toolName("getMyProfile")
+                .parameters(Collections.emptyMap())
+                .authorized(true)
+                .build();
+        }
+        return SubIntent.builder()
+            .domain("STUDENTS")
+            .toolName("searchStudent")
+            .parameters(Map.of("query", query))
+            .authorized(true)
+            .build();
+    }
+
     private SubIntent buildStudentRosterSubIntent(String role, String className, String section, String norm) {
         if ("STUDENT".equals(role)) {
             return SubIntent.builder()
@@ -394,16 +437,32 @@ public class QueryDecompositionEngine {
                 .authorized(true)
                 .build();
         }
+        if ("TEACHER".equals(role)) {
+            return SubIntent.builder()
+                .domain("STUDENTS")
+                .toolName("getMyStudents")
+                .parameters(Collections.emptyMap())
+                .authorized(true)
+                .build();
+        }
         return SubIntent.builder()
             .domain("STUDENTS")
             .toolName("getStudentStatistics")
             .parameters(Collections.emptyMap())
-            .authorized("ADMIN".equals(role))
-            .denialReason(!"ADMIN".equals(role) ? "Please specify which class students you would like to view." : null)
+            .authorized(true)
             .build();
     }
 
     private SubIntent buildTeacherSubIntent(String role, Long userId, Long teacherId, String raw, String norm) {
+        String teacherQuery = extractTeacherSearchQuery(raw, norm);
+        if (teacherQuery != null) {
+            return SubIntent.builder()
+                .domain("TEACHERS")
+                .toolName("searchTeacher")
+                .parameters(Map.of("query", teacherQuery))
+                .authorized(true)
+                .build();
+        }
         if ("STUDENT".equals(role)) {
             return SubIntent.builder()
                 .domain("TEACHERS")
@@ -445,49 +504,133 @@ public class QueryDecompositionEngine {
         }
     }
 
-    // ── Intent detection helpers ──
+    // ── Intent detection and query extraction helpers ──
+
+    private static final Pattern ADMISSION_NO_PATTERN = Pattern.compile("(?i)\\b(ADM[A-Z0-9\\-_]+)\\b");
+    private static final Pattern STUDENT_NAME_PATTERN = Pattern.compile(
+        "(?i)(?:student|bacche?|details\\s+of\\s+student|info\\s+about\\s+student|tell\\s+me\\s+about\\s+student|search\\s+student|find\\s+student|about\\s+student)\\s+([A-Za-z]+(?:\\s+[A-Za-z]+)?)");
+
+    private static final Set<String> NON_STUDENT_NAMES = Set.of(
+        "information", "info", "details", "detail", "attendance", "fee", "fees", "timetable", "schedule",
+        "profile", "record", "records", "list", "roster", "count", "total", "marks", "status", "all",
+        "data", "admission", "admissions", "enrolled", "enrollment", "stats", "statistics", "report",
+        "ka", "ki", "ke", "ko", "hai", "kya", "about", "summary", "class", "section", "overview"
+    );
+
+    private String extractStudentSearchQuery(String raw, String norm) {
+        if (raw == null || raw.isBlank()) return null;
+
+        Matcher admMatcher = ADMISSION_NO_PATTERN.matcher(raw);
+        if (admMatcher.find()) {
+            return admMatcher.group(1).trim();
+        }
+
+        Matcher nameMatcher = STUDENT_NAME_PATTERN.matcher(raw);
+        if (nameMatcher.find()) {
+            String candidate = nameMatcher.group(1).trim();
+            String candLower = candidate.toLowerCase();
+            if (!NON_STUDENT_NAMES.contains(candLower)) {
+                String firstWord = candLower.split("\\s+")[0];
+                if (!NON_STUDENT_NAMES.contains(firstWord)) {
+                    return candidate;
+                }
+            }
+        }
+
+        Matcher personMatcher = Pattern.compile("(?i)(?:who\\s+is|details\\s+of|search\\s+for|search|find)\\s+([A-Za-z]+(?:\\s+[A-Za-z]+)?)").matcher(raw);
+        if (personMatcher.find()) {
+            String candidate = personMatcher.group(1).trim();
+            String candLower = candidate.toLowerCase();
+            if (!NON_STUDENT_NAMES.contains(candLower) && !candLower.contains("teacher") && !candLower.contains("faculty")) {
+                String firstWord = candLower.split("\\s+")[0];
+                if (!NON_STUDENT_NAMES.contains(firstWord)) {
+                    return candidate;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private String extractTeacherSearchQuery(String raw, String norm) {
+        if (raw == null || raw.isBlank()) return null;
+        Matcher m = Pattern.compile("(?i)(?:teacher|faculty|sir|madam|prof)\\s+([A-Za-z]+(?:\\s+[A-Za-z]+)?)").matcher(raw);
+        if (m.find()) {
+            String cand = m.group(1).trim().toLowerCase();
+            if (!NON_STUDENT_NAMES.contains(cand) && !cand.equals("name") && !cand.equals("details") && !cand.equals("info")) {
+                return m.group(1).trim();
+            }
+        }
+        String[] subjects = {"math", "maths", "mathematics", "science", "physics", "chemistry", "biology", "english", "hindi", "social science", "computer"};
+        for (String sub : subjects) {
+            if (norm.contains(sub)) {
+                return sub;
+            }
+        }
+        return null;
+    }
 
     private boolean hasAttendanceIntent(String norm, String raw) {
         return norm.contains("attend") || norm.contains("absent") || norm.contains("present") ||
-               norm.contains("hazri") || norm.contains("roll call") || raw.contains("attend");
+               norm.contains("hazri") || norm.contains("roll call") || raw.toLowerCase().contains("attend") ||
+               norm.contains("unmarked");
     }
 
     private boolean hasFeeIntent(String norm, String raw) {
         return norm.contains("fee") || norm.contains("pay") || norm.contains("due") ||
                norm.contains("balance") || norm.contains("receipt") || norm.contains("paisa") ||
-               norm.contains("rupee") || raw.contains("fee") || raw.contains("fess");
+               norm.contains("rupee") || raw.toLowerCase().contains("fee") || raw.toLowerCase().contains("fess") ||
+               norm.contains("collection") || norm.contains("revenue") || norm.contains("outstanding");
     }
 
     private boolean hasTimetableIntent(String norm, String raw) {
         return norm.contains("timetable") || norm.contains("schedule") || norm.contains("period") ||
                norm.contains("class today") || norm.contains("classes today") || norm.contains("next period") ||
-               norm.contains("first class") || norm.contains("next class");
+               norm.contains("first class") || norm.contains("next class") || norm.contains("timing");
     }
 
-    private boolean hasStudentRosterIntent(String norm, String raw, String className) {
-        return (className != null && (norm.contains("student") || norm.contains("kitne") || norm.contains("how many") || norm.contains("roster") || norm.contains("list"))) ||
-               norm.contains("total student") || norm.contains("enrolled");
+    private boolean hasStudentIntent(String norm, String raw) {
+        return norm.contains("student") || norm.contains("pupil") || norm.contains("bacche") ||
+               norm.contains("bacha") || norm.contains("admission") || norm.contains("enrolled") ||
+               norm.contains("enrollment") || norm.contains("roster") || norm.contains("roll no") ||
+               norm.contains("roll number") || raw.toLowerCase().contains("student") ||
+               raw.toUpperCase().contains("ADM20") || raw.toUpperCase().contains("ADM-");
     }
 
     private boolean hasTeacherIntent(String norm, String raw) {
         return norm.contains("teacher") || norm.contains("faculty") || norm.contains("sir") ||
-               norm.contains("madam") || norm.contains("prof") || norm.contains("educator");
+               norm.contains("madam") || norm.contains("prof") || norm.contains("educator") ||
+               norm.contains("staff") || norm.contains("adhyapak");
     }
 
     private boolean hasNoticeIntent(String norm, String raw) {
         return norm.contains("notice") || norm.contains("circular") || norm.contains("announcement") ||
-               norm.contains("update") || norm.contains("khabar");
+               norm.contains("update") || norm.contains("khabar") || norm.contains("news");
     }
 
     private boolean hasEventIntent(String norm, String raw) {
         return norm.contains("event") || norm.contains("sports day") || norm.contains("annual day") ||
-               norm.contains("celebration") || norm.contains("competition") || norm.contains("exhibition");
+               norm.contains("celebration") || norm.contains("competition") || norm.contains("exhibition") ||
+               norm.contains("program");
     }
 
     private boolean hasCalendarIntent(String norm, String raw) {
         return norm.contains("holiday") || norm.contains("vacation") || norm.contains("chutti") ||
                norm.contains("exam") || norm.contains("mid-term") || norm.contains("calendar") ||
                norm.contains("ptm");
+    }
+
+    private boolean hasInquiryIntent(String norm, String raw) {
+        return norm.contains("inquir") || norm.contains("enquir") || norm.contains("contact") ||
+               norm.contains("message") || norm.contains("parent query") || norm.contains("complaint") ||
+               norm.contains("feedbacks") || norm.contains("helpdesk");
+    }
+
+    private boolean hasSchoolOverviewIntent(String norm, String raw) {
+        return norm.contains("school") || norm.contains("dashboard") || norm.contains("overview") ||
+               norm.contains("summary") || norm.contains("operation") || norm.contains("kya chal raha") ||
+               norm.contains("all info") || norm.contains("everything") || norm.contains("status") ||
+               norm.contains("overall") || norm.contains("operational summary");
     }
 
     private String extractDateWindow(String norm, String raw) {

@@ -46,13 +46,7 @@ public class AnswerComposer {
 
         // 3. Handle Empty or Unknown Questions
         if (result.getToolOutputs() == null || result.getToolOutputs().isEmpty()) {
-            return AIResponse.builder()
-                .content("I couldn't find relevant records for your query in the school ERP data currently available. Please verify the information or contact the school administrative office.")
-                .toolUsed("UnknownQuestionHandler")
-                .toolsInvoked(Collections.emptyList())
-                .actions(Collections.emptyList())
-                .fallbackUsed(true)
-                .build();
+            return formatHelpfulUnknownResponse(role, originalQuery);
         }
 
         StringBuilder sb = new StringBuilder();
@@ -105,7 +99,7 @@ public class AnswerComposer {
             appendStudentStatistics(sb, outputs.get("getStudentStatistics"), actions);
         }
         if (outputs.containsKey("searchStudent")) {
-            appendStudentSearchResults(sb, outputs.get("searchStudent"));
+            appendStudentSearchResults(sb, outputs.get("searchStudent"), actions);
         }
 
         // ── TEACHERS & FACULTY ──
@@ -213,10 +207,14 @@ public class AnswerComposer {
         if (!(data instanceof Map)) return;
         Map<String, Object> a = (Map<String, Object>) data;
         sb.append("### 📊 School-Wide Daily Attendance Telemetry\n");
-        if (a.get("overallRate") != null) sb.append("• **Average Attendance Rate:** **").append(a.get("overallRate")).append("%**\n");
-        if (a.get("totalPresent") != null) sb.append("• **Total Present:** ").append(a.get("totalPresent")).append(" students\n");
-        if (a.get("totalAbsent") != null) sb.append("• **Total Absent:** ").append(a.get("totalAbsent")).append(" students\n");
-        sb.append("\n");
+        Object rate = a.get("attendancePercentage") != null ? a.get("attendancePercentage") : a.get("overallRate");
+        if (rate != null) sb.append("• **Average Attendance Rate:** **").append(rate).append("%**\n");
+        Object present = a.get("presentCount") != null ? a.get("presentCount") : a.get("totalPresent");
+        if (present != null) sb.append("• **Total Present:** ").append(present).append(" students\n");
+        Object absent = a.get("absentCount") != null ? a.get("absentCount") : a.get("totalAbsent");
+        if (absent != null) sb.append("• **Total Absent:** ").append(absent).append(" students\n");
+        if (a.get("lateCount") != null) sb.append("• **Late Arrivals:** ").append(a.get("lateCount")).append(" students\n");
+        sb.append("• *Note: Attendance is tracked as daily full-day school attendance.*\n\n");
 
         actions.add(ChatActionDto.builder()
             .label("📈 Open Attendance Analytics")
@@ -340,7 +338,7 @@ public class AnswerComposer {
             int limit = Math.min(5, students.size());
             for (int i = 0; i < limit; i++) {
                 Map<String, Object> s = students.get(i);
-                sb.append("  ").append(i + 1).append(". ").append(s.getOrDefault("name", "Student"))
+                sb.append("  ").append(i + 1).append(". ").append(resolveStudentName(s))
                   .append(" (Roll No: ").append(s.getOrDefault("rollNumber", "N/A")).append(")\n");
             }
             if (students.size() > 5) {
@@ -353,27 +351,97 @@ public class AnswerComposer {
     private void appendStudentStatistics(StringBuilder sb, Object data, List<ChatActionDto> actions) {
         if (!(data instanceof Map)) return;
         Map<String, Object> s = (Map<String, Object>) data;
-        sb.append("### 📈 Student Enrollment Statistics\n");
-        sb.append("• **Total Students Enrolled:** **").append(s.getOrDefault("totalStudents", "1,250")).append("**\n");
-        sb.append("• **Active Status:** ").append(s.getOrDefault("activeStudents", "Active across All Grades")).append("\n\n");
+        Object total = s.getOrDefault("totalStudents", 0);
+        Object active = s.getOrDefault("activeStudents", 0);
+        Object inactive = s.getOrDefault("inactiveStudents", 0);
 
-        actions.add(ChatActionDto.builder()
-            .label("👥 Student Directory")
-            .url("/admin/students")
-            .build());
-    }
+        sb.append("### 📈 Student Enrollment & Demographics\n");
+        sb.append("• **Total Students Enrolled:** **").append(total).append(" students**\n");
+        sb.append("• **Active Status:** **").append(active).append(" Active**");
+        if (inactive != null && !"0".equals(String.valueOf(inactive))) {
+            sb.append(" (").append(inactive).append(" Inactive/Alumni)");
+        }
+        sb.append("\n");
 
-    private void appendStudentSearchResults(StringBuilder sb, Object data) {
-        sb.append("### 🔍 Student Search Results\n");
-        if (data instanceof List) {
-            List<Map<String, Object>> results = (List<Map<String, Object>>) data;
-            for (Map<String, Object> s : results) {
-                sb.append("• **").append(s.getOrDefault("name", "Student")).append("** (Adm: ")
-                  .append(s.getOrDefault("admissionNo", "N/A")).append(", Class: ")
-                  .append(s.getOrDefault("studentClass", "")).append("-").append(s.getOrDefault("section", "")).append(")\n");
+        Object perClassObj = s.get("studentsPerClass");
+        if (perClassObj instanceof Map) {
+            Map<?, ?> perClass = (Map<?, ?>) perClassObj;
+            if (!perClass.isEmpty()) {
+                sb.append("• **Class Distribution:** ");
+                List<String> classParts = new ArrayList<>();
+                for (Map.Entry<?, ?> entry : perClass.entrySet()) {
+                    classParts.add("Class " + entry.getKey() + ": **" + entry.getValue() + "**");
+                }
+                sb.append(String.join(", ", classParts)).append("\n");
             }
         }
         sb.append("\n");
+
+        actions.add(ChatActionDto.builder()
+            .label("👥 View Student Directory")
+            .url("/admin/students")
+            .build());
+        actions.add(ChatActionDto.builder()
+            .label("➕ New Admission")
+            .url("/admin/students/new")
+            .build());
+    }
+
+    private void appendStudentSearchResults(StringBuilder sb, Object data, List<ChatActionDto> actions) {
+        sb.append("### 🔍 Student Search Results\n");
+        if (data instanceof List) {
+            List<Map<String, Object>> results = (List<Map<String, Object>>) data;
+            if (results.isEmpty()) {
+                sb.append("No matching student records found. Please check spelling or verify the admission number.\n");
+            } else {
+                for (Map<String, Object> s : results) {
+                    sb.append("• **").append(resolveStudentName(s)).append("**\n");
+                    sb.append("  - **Admission No:** ").append(s.getOrDefault("admissionNo", "N/A"));
+                    sb.append(" | **Class:** ").append(s.getOrDefault("studentClass", "-")).append("-").append(s.getOrDefault("section", "-"));
+                    if (s.containsKey("rollNumber") && s.get("rollNumber") != null) {
+                        sb.append(" | **Roll No:** ").append(s.get("rollNumber"));
+                    }
+                    if (s.containsKey("status") && s.get("status") != null) {
+                        sb.append(" | **Status:** ").append(s.get("status"));
+                    }
+                    sb.append("\n");
+                    if (s.containsKey("guardianName") && s.get("guardianName") != null) {
+                        sb.append("  - **Guardian:** ").append(s.get("guardianName"));
+                    }
+                    if (s.containsKey("contactNumber") && s.get("contactNumber") != null) {
+                        sb.append(" | **Contact:** ").append(s.get("contactNumber"));
+                    }
+                    if (s.containsKey("attendancePercentage")) {
+                        sb.append("\n  - **Attendance:** **").append(s.get("attendancePercentage")).append("%**");
+                    }
+                    if (s.containsKey("pendingFee")) {
+                        sb.append(" | **Fee Due:** ₹").append(s.get("pendingFee"));
+                    }
+                    sb.append("\n");
+                }
+                actions.add(ChatActionDto.builder()
+                    .label("👥 View Student Directory")
+                    .url("/admin/students")
+                    .build());
+            }
+        } else if (data instanceof Map) {
+            Map<?, ?> m = (Map<?, ?>) data;
+            if (m.containsKey("message")) {
+                sb.append(m.get("message")).append("\n");
+            }
+        }
+        sb.append("\n");
+    }
+
+    private String resolveStudentName(Map<String, Object> s) {
+        if (s == null) return "Student";
+        String name = (String) s.get("name");
+        if (name == null || name.isBlank()) {
+            String fn = String.valueOf(s.getOrDefault("firstName", "")).trim();
+            String ln = String.valueOf(s.getOrDefault("lastName", "")).trim();
+            name = (fn + " " + ln).trim();
+        }
+        return name.isBlank() ? "Student" : name;
     }
 
     private void appendTeacherProfile(StringBuilder sb, Object data) {
@@ -412,8 +480,16 @@ public class AnswerComposer {
     private void appendFacultySummary(StringBuilder sb, Object data, List<ChatActionDto> actions) {
         if (!(data instanceof Map)) return;
         Map<String, Object> f = (Map<String, Object>) data;
+        Object total = f.containsKey("totalFaculty") ? f.get("totalFaculty") : f.getOrDefault("totalTeachers", "0");
         sb.append("### 👨‍🏫 Faculty Overview\n");
-        sb.append("• **Total Faculty Members:** **").append(f.getOrDefault("totalTeachers", "85")).append("**\n\n");
+        sb.append("• **Total Faculty Members:** **").append(total).append(" Teachers**\n");
+        if (f.containsKey("activeTeachers")) {
+            sb.append("• **Active Status:** **").append(f.get("activeTeachers")).append(" Active**\n");
+        }
+        if (f.containsKey("departments") && f.get("departments") != null) {
+            sb.append("• **Departments:** ").append(f.get("departments")).append("\n");
+        }
+        sb.append("\n");
 
         actions.add(ChatActionDto.builder()
             .label("👥 Faculty Directory")
@@ -485,7 +561,13 @@ public class AnswerComposer {
 
     private void appendPendingInquiries(StringBuilder sb, Object data, List<ChatActionDto> actions) {
         sb.append("### ✉️ Public Inquiries & Admissions Requests\n");
-        if (data instanceof List) {
+        if (data instanceof Map) {
+            Map m = (Map) data;
+            Object tot = m.get("totalInquiries") != null ? m.get("totalInquiries") : 0;
+            Object pend = m.get("pendingInquiries") != null ? m.get("pendingInquiries") : 0;
+            sb.append("• **Total Inquiries Received:** **").append(tot).append("**\n");
+            sb.append("• **Pending Response:** **").append(pend).append("**\n\n");
+        } else if (data instanceof List) {
             List list = (List) data;
             sb.append("• **Pending Inquiries Awaiting Response:** **").append(list.size()).append("**\n\n");
         }
@@ -493,6 +575,57 @@ public class AnswerComposer {
             .label("✉️ View Inquiries")
             .url("/admin/inquiries")
             .build());
+    }
+
+    private AIResponse formatHelpfulUnknownResponse(String role, String originalQuery) {
+        StringBuilder sb = new StringBuilder();
+        List<ChatActionDto> actions = new ArrayList<>();
+
+        if ("ADMIN".equalsIgnoreCase(role)) {
+            sb.append("I couldn't find specific school ERP records matching **\"").append(originalQuery).append("\"**.\n\n");
+            sb.append("As an Administrator, you can ask me directly about:\n");
+            sb.append("• **Student Records:** *'student statistics'*, *'Class 10 students'*, or search any student (e.g. *'student Rahul'* or admission number).\n");
+            sb.append("• **Attendance Metrics:** *'today's attendance'*, *'Class 10-A attendance'*, or overall school attendance.\n");
+            sb.append("• **Fee Telemetry:** *'fee collections'*, *'fee analytics'*, or *'fee structure' class-wise.\n");
+            sb.append("• **Faculty Overview:** *'faculty summary'*, or search for a teacher by name or subject.\n");
+            sb.append("• **Notices & Events:** *'latest notices'*, *'upcoming school events'*, or school calendar.\n\n");
+            sb.append("Quick links to ERP management modules:");
+
+            actions.add(ChatActionDto.builder().label("👥 Students").url("/admin/students").build());
+            actions.add(ChatActionDto.builder().label("📊 Attendance").url("/admin/attendance").build());
+            actions.add(ChatActionDto.builder().label("💳 Fees").url("/admin/fees").build());
+            actions.add(ChatActionDto.builder().label("👨‍🏫 Faculty").url("/admin/faculty").build());
+        } else if ("TEACHER".equalsIgnoreCase(role)) {
+            sb.append("I couldn't find specific school records matching **\"").append(originalQuery).append("\"**.\n\n");
+            sb.append("As a Teacher, you can ask me about:\n");
+            sb.append("• **My Classes & Students:** *'my classes'*, *'my students'*, or *'Class 10 students'*.\n");
+            sb.append("• **Class Attendance:** *'Class 10-A attendance'*, or daily attendance register.\n");
+            sb.append("• **Timetable:** *'my timetable today'*, or period timings.\n");
+            sb.append("• **Circulars:** *'latest notices'*, *'upcoming events'*.\n");
+
+            actions.add(ChatActionDto.builder().label("📚 My Classes").url("/teacher/classes").build());
+            actions.add(ChatActionDto.builder().label("✍️ Mark Attendance").url("/teacher/attendance").build());
+            actions.add(ChatActionDto.builder().label("⏰ Timetable").url("/teacher/timetable").build());
+        } else {
+            sb.append("I couldn't find specific school records matching **\"").append(originalQuery).append("\"**.\n\n");
+            sb.append("You can ask me directly about:\n");
+            sb.append("• **My Attendance:** *'what is my attendance percentage'* or *'days absent'*.\n");
+            sb.append("• **My Fees:** *'pending fees balance'* or *'fee summary'*.\n");
+            sb.append("• **My Schedule:** *'my timetable today'* or *'next period'*.\n");
+            sb.append("• **School Updates:** *'latest notices'* or *'upcoming holidays & events'*.\n");
+
+            actions.add(ChatActionDto.builder().label("📊 Check Attendance").url("/student/attendance").build());
+            actions.add(ChatActionDto.builder().label("💳 View Fees").url("/student/fees").primary(true).build());
+            actions.add(ChatActionDto.builder().label("📅 Timetable").url("/student/academics").build());
+        }
+
+        return AIResponse.builder()
+            .content(sb.toString())
+            .toolUsed("SchoolAssistantHelp")
+            .toolsInvoked(Collections.singletonList("SchoolAssistantHelp"))
+            .actions(actions)
+            .fallbackUsed(true)
+            .build();
     }
 
     private String formatINR(long amount) {

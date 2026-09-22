@@ -208,6 +208,84 @@ public class QueryDecompositionAndOrchestrationTest {
         // Should clearly state lack of information and offer official contact
         assertTrue(response.getContent().contains("couldn't find") ||
                    response.getContent().contains("school ERP data") ||
-                   response.getContent().contains("administrative office"));
+                   response.getContent().contains("administrative office") ||
+                   response.getContent().contains("ask me directly"));
+    }
+
+    @Test
+    @DisplayName("P0: Admin open-ended query 'give me information about student' decomposes into getStudentStatistics")
+    void testAdminOpenEndedStudentQuery() {
+        QueryDecompositionEngine.DecomposedQueryPlan plan = decompositionEngine.decompose(
+                "give me information about student",
+                101L,
+                1L,
+                "ADMIN",
+                null,
+                null
+        );
+
+        assertNotNull(plan);
+        assertFalse(plan.getIntents().isEmpty());
+        assertEquals("STUDENTS", plan.getIntents().get(0).getDomain());
+        assertEquals("getStudentStatistics", plan.getIntents().get(0).getToolName());
+        assertTrue(plan.getIntents().get(0).isAuthorized());
+    }
+
+    @Test
+    @DisplayName("P0: Specific student search query 'give me information about student Rahul' decomposes into searchStudent")
+    void testStudentSearchByName() {
+        QueryDecompositionEngine.DecomposedQueryPlan plan = decompositionEngine.decompose(
+                "give me information about student Rahul",
+                102L,
+                1L,
+                "ADMIN",
+                null,
+                null
+        );
+
+        assertNotNull(plan);
+        assertFalse(plan.getIntents().isEmpty());
+        assertEquals("STUDENTS", plan.getIntents().get(0).getDomain());
+        assertEquals("searchStudent", plan.getIntents().get(0).getToolName());
+        assertEquals("Rahul", plan.getIntents().get(0).getParameters().get("query"));
+        assertTrue(plan.getIntents().get(0).isAuthorized());
+    }
+
+    @Test
+    @DisplayName("P0: Teacher query 'give me information about student' routes to getMyStudents")
+    void testTeacherStudentQuery() {
+        QueryDecompositionEngine.DecomposedQueryPlan plan = decompositionEngine.decompose(
+                "give me information about student",
+                103L,
+                20L,
+                "TEACHER",
+                null,
+                5L
+        );
+
+        assertNotNull(plan);
+        assertFalse(plan.getIntents().isEmpty());
+        assertEquals("STUDENTS", plan.getIntents().get(0).getDomain());
+        assertEquals("getMyStudents", plan.getIntents().get(0).getToolName());
+        assertTrue(plan.getIntents().get(0).isAuthorized());
+    }
+
+    @Test
+    @DisplayName("P0: Student query 'give me information about student' routes to getMyProfile")
+    void testStudentSelfProfileQuery() {
+        QueryDecompositionEngine.DecomposedQueryPlan plan = decompositionEngine.decompose(
+                "give me information about student",
+                104L,
+                101L,
+                "STUDENT",
+                55L,
+                null
+        );
+
+        assertNotNull(plan);
+        assertFalse(plan.getIntents().isEmpty());
+        assertEquals("STUDENTS", plan.getIntents().get(0).getDomain());
+        assertEquals("getMyProfile", plan.getIntents().get(0).getToolName());
+        assertTrue(plan.getIntents().get(0).isAuthorized());
     }
 }
