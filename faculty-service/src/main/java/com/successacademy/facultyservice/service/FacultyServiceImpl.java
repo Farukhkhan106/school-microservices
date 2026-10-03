@@ -25,24 +25,32 @@ public class FacultyServiceImpl implements FacultyService {
 
     private final FacultyRepository repository;
     private final AuthServiceClient authServiceClient;
+    private final com.successacademy.facultyservice.repository.FacultyMonthlySalaryRepository monthlySalaryRepository;
 
     @Override
     public FacultyResponse addFaculty(FacultyRequest request) {
         Faculty faculty = mapToEntity(request);
         Faculty saved = repository.save(faculty);
 
-        // Auto-create login account in auth-service
-        Long authUserId = authServiceClient.createTeacherUser(
-            saved.getId(),
-            saved.getName(),
-            saved.getEmail()
-        );
-
-        // Store the generated auth userId back into faculty record
-        if (authUserId != null) {
-            saved.setUserId(authUserId);
-            repository.save(saved);
+        if (saved.getFacultyCode() == null || saved.getFacultyCode().isBlank()) {
+            saved.setFacultyCode(String.format("FAC-%04d", saved.getId()));
+            saved = repository.save(saved);
         }
+
+        // Auto-create login account in auth-service if needed
+        try {
+            Long authUserId = authServiceClient.createTeacherUser(
+                saved.getId(),
+                saved.getName(),
+                saved.getEmail()
+            );
+
+            // Store the generated auth userId back into faculty record
+            if (authUserId != null) {
+                saved.setUserId(authUserId);
+                repository.save(saved);
+            }
+        } catch (Exception ignored) {}
 
         return mapToResponse(saved);
     }
@@ -63,13 +71,26 @@ public class FacultyServiceImpl implements FacultyService {
         faculty.setPhotoUrl(request.getPhotoUrl());
         faculty.setStatus(request.getStatus());
         if (request.getUserId() != null) faculty.setUserId(request.getUserId());
+        if (request.getFacultyCode() != null && !request.getFacultyCode().isBlank()) {
+            faculty.setFacultyCode(request.getFacultyCode().trim());
+        }
+        if (request.getDepartment() != null) faculty.setDepartment(request.getDepartment().trim());
+        if (request.getJoiningDate() != null) faculty.setJoiningDate(request.getJoiningDate());
+        if (request.getEmploymentType() != null) faculty.setEmploymentType(request.getEmploymentType().trim());
+        if (request.getBaseSalary() != null) faculty.setBaseSalary(request.getBaseSalary());
 
         return mapToResponse(repository.save(faculty));
     }
 
     @Override
     public void deleteFaculty(Long id) {
-        if (!repository.existsById(id)) throw new RuntimeException("Faculty not found with id: " + id);
+        if (!repository.existsById(id)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Faculty not found with id: " + id);
+        }
+        if (!monthlySalaryRepository.findByFacultyIdOrderByYearDescMonthDesc(id).isEmpty()) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
+                    "Cannot delete faculty with existing payroll records. Please deactivate the faculty status instead to preserve historical records.");
+        }
         repository.deleteById(id);
     }
 
@@ -83,7 +104,18 @@ public class FacultyServiceImpl implements FacultyService {
     @Override
     public List<FacultyResponse> getActiveFaculty() {
         return repository.findByStatusIgnoreCase("Active").stream()
-                .map(this::mapToResponse).toList();
+                .map(f -> {
+                    FacultyResponse res = mapToResponse(f);
+                    res.setBaseSalary(null);
+                    res.setPhone(null);
+                    if (res.getEmail() != null && res.getEmail().contains("@")) {
+                        String[] parts = res.getEmail().split("@");
+                        String u = parts[0];
+                        String masked = (u.length() <= 2) ? u.charAt(0) + "***" : u.substring(0, 2) + "***";
+                        res.setEmail(masked + "@" + parts[1]);
+                    }
+                    return res;
+                }).toList();
     }
 
     @Override
@@ -120,6 +152,11 @@ public class FacultyServiceImpl implements FacultyService {
                 .classTeacherOf(r.getClassTeacherOf()).photoUrl(r.getPhotoUrl())
                 .status(r.getStatus() != null ? r.getStatus() : "Active")
                 .userId(r.getUserId())
+                .facultyCode(r.getFacultyCode() != null && !r.getFacultyCode().isBlank() ? r.getFacultyCode().trim() : null)
+                .department(r.getDepartment() != null ? r.getDepartment().trim() : "Academic")
+                .joiningDate(r.getJoiningDate() != null ? r.getJoiningDate() : java.time.LocalDate.now())
+                .employmentType(r.getEmploymentType() != null ? r.getEmploymentType().trim() : "FULL_TIME")
+                .baseSalary(r.getBaseSalary() != null ? r.getBaseSalary() : java.math.BigDecimal.valueOf(26000.00))
                 .build();
     }
 
@@ -128,12 +165,22 @@ public class FacultyServiceImpl implements FacultyService {
                 ? Arrays.stream(f.getSubjects().split(",")).map(String::trim).toList()
                 : List.of();
 
+        String code = f.getFacultyCode();
+        if (code == null || code.isBlank()) {
+            code = String.format("FAC-%04d", f.getId());
+        }
+
         return FacultyResponse.builder()
                 .id(f.getId()).name(f.getName()).email(f.getEmail()).phone(f.getPhone())
                 .designation(f.getDesignation()).qualification(f.getQualification())
                 .experience(f.getExperience()).subjects(subjectList)
                 .classTeacherOf(f.getClassTeacherOf()).photoUrl(f.getPhotoUrl())
                 .status(f.getStatus()).userId(f.getUserId())
+                .facultyCode(code)
+                .department(f.getDepartment() != null ? f.getDepartment() : "Academic")
+                .joiningDate(f.getJoiningDate() != null ? f.getJoiningDate() : java.time.LocalDate.of(2024, 1, 1))
+                .employmentType(f.getEmploymentType() != null ? f.getEmploymentType() : "FULL_TIME")
+                .baseSalary(f.getBaseSalary() != null ? f.getBaseSalary() : java.math.BigDecimal.valueOf(26000.00))
                 .build();
     }
 

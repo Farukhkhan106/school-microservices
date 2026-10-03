@@ -16,4 +16,5 @@ public class UserSummary {
     private String role;
     private Long studentId;
     private Long teacherId;
+    private Long staffId;
 }

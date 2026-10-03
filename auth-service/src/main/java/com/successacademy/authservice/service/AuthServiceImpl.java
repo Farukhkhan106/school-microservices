@@ -30,7 +30,8 @@ public class AuthServiceImpl implements AuthService {
                 user.getRole(),
                 user.getId(),
                 user.getStudentId(),
-                user.getTeacherId()
+                user.getTeacherId(),
+                user.getStaffId()
         );
 
         return new LoginResponse(
@@ -40,7 +41,8 @@ public class AuthServiceImpl implements AuthService {
                 user.getRole(),
                 token,
                 user.getStudentId(),
-                user.getTeacherId()
+                user.getTeacherId(),
+                user.getStaffId()
         );
     }
 
@@ -58,6 +60,7 @@ public class AuthServiceImpl implements AuthService {
         user.setRole(request.getRole().toUpperCase());
         user.setStudentId(request.getStudentId());
         user.setTeacherId(request.getTeacherId());
+        user.setStaffId(request.getStaffId());
 
         User saved = userRepository.save(user);
 
@@ -68,6 +71,7 @@ public class AuthServiceImpl implements AuthService {
                 saved.getRole(),
                 saved.getStudentId(),
                 saved.getTeacherId(),
+                saved.getStaffId(),
                 "User registered successfully"
         );
     }

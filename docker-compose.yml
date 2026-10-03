@@ -326,7 +326,63 @@ services:
       - school-net
 
   # =================================================================
-  # 14. API GATEWAY (Public Ingress)
+  # 14. STAFF SERVICE (Non-Teaching Employee Management)
+  # =================================================================
+  staff-service:
+    build:
+      context: ./staff-service
+      dockerfile: Dockerfile
+    container_name: school-staff-service
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+      auth-service:
+        condition: service_started
+    environment:
+      PORT: 8092
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/staffdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_ROOT_PASSWORD:-Farukh@106}
+      AUTH_SERVICE_URL: http://auth-service:8084
+    volumes:
+      - staff_uploads:/app/uploads/staff
+    networks:
+      - school-net
+
+  # =================================================================
+  # 15. ACADEMIC SERVICE (Examination, Assessment & Results)
+  # =================================================================
+  academic-service:
+    build:
+      context: ./academic-service
+      dockerfile: Dockerfile
+    container_name: school-academic-service
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+      auth-service:
+        condition: service_started
+    environment:
+      PORT: 8093
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/academicdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_ROOT_PASSWORD:-Farukh@106}
+      STUDENT_SERVICE_URL: http://student-service:8085
+      FACULTY_SERVICE_URL: http://faculty-service:8086
+      ATTENDANCE_SERVICE_URL: http://attendance-service:8088
+    networks:
+      - school-net
+
+  # =================================================================
+  # 16. API GATEWAY (Public Ingress)
   # =================================================================
   api-gateway:
     build:
@@ -352,6 +408,7 @@ volumes:
   student_uploads:
   faculty_uploads:
   gallery_uploads:
+  staff_uploads:
 
 networks:
   school-net:

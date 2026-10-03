@@ -23,8 +23,8 @@ public class JwtUtil {
 
     private final long EXPIRATION = 1000 * 60 * 60 * 24; // 24 hours
 
-    // CREATE TOKEN (Overload with userId, studentId, teacherId)
-    public String generateToken(String username, String role, Long userId, Long studentId, Long teacherId) {
+    // CREATE TOKEN (Overload with userId, studentId, teacherId, staffId)
+    public String generateToken(String username, String role, Long userId, Long studentId, Long teacherId, Long staffId) {
         JwtBuilder builder = Jwts.builder()
                 .setSubject(username)
                 .claim("role", role)
@@ -38,13 +38,21 @@ public class JwtUtil {
         if (teacherId != null) {
             builder.claim("teacherId", teacherId);
         }
+        if (staffId != null) {
+            builder.claim("staffId", staffId);
+        }
 
         return builder.signWith(getSigningKey(), SignatureAlgorithm.HS256).compact();
     }
 
+    // Overload with studentId, teacherId (backward compatibility)
+    public String generateToken(String username, String role, Long userId, Long studentId, Long teacherId) {
+        return generateToken(username, role, userId, studentId, teacherId, null);
+    }
+
     // Legacy overload
     public String generateToken(String username, String role) {
-        return generateToken(username, role, null, null, null);
+        return generateToken(username, role, null, null, null, null);
     }
 
     // VALIDATE TOKEN

@@ -1,7 +1,9 @@
 package com.successacademy.feeservice.config;
 
+import com.successacademy.feeservice.model.FeePayment;
 import com.successacademy.feeservice.model.FeeRecord;
 import com.successacademy.feeservice.model.FeeStructure;
+import com.successacademy.feeservice.repository.FeePaymentRepository;
 import com.successacademy.feeservice.repository.FeeRecordRepository;
 import com.successacademy.feeservice.repository.FeeStructureRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +19,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private final FeeStructureRepository structureRepo;
     private final FeeRecordRepository recordRepo;
+    private final FeePaymentRepository paymentRepo;
 
     @Override
     public void run(String... args) {
@@ -62,23 +65,45 @@ public class DataInitializer implements CommandLineRunner {
             System.out.println("✅ Fee structures seeded — 6 records.");
         }
 
-        // ── FEE RECORDS ────────────────────────────────────────
+        // ── FEE RECORDS & PAYMENT LEDGER ───────────────────────
         if (recordRepo.count() == 0) {
             // Student 1 — Rahul Sharma — Class 10-A — Paid
-            recordRepo.save(FeeRecord.builder()
+            FeeRecord r1 = recordRepo.save(FeeRecord.builder()
                     .studentId(1L).studentName("Rahul Sharma").studentClass("10-A")
                     .feeType("Tuition").amount(bd(25000)).paidAmount(bd(25000))
                     .dueDate(LocalDate.of(2024, 12, 10))
                     .paymentDate(LocalDate.of(2024, 12, 5))
                     .status("Paid").paymentMethod("Online").build());
 
+            paymentRepo.save(FeePayment.builder()
+                    .feeRecordId(r1.getId())
+                    .amountPaid(bd(25000))
+                    .paymentMethod("Online")
+                    .transactionReference("TXN-DEMO-001")
+                    .receiptNumber("REC-2024-00001")
+                    .paymentDate(LocalDate.of(2024, 12, 5))
+                    .remarks("Full tuition fee paid online via net banking")
+                    .recordedBy(1L)
+                    .build());
+
             // Student 2 — Priya Patel — Class 9-B — Partial
-            recordRepo.save(FeeRecord.builder()
+            FeeRecord r2 = recordRepo.save(FeeRecord.builder()
                     .studentId(2L).studentName("Priya Patel").studentClass("9-B")
                     .feeType("Tuition").amount(bd(22000)).paidAmount(bd(10000))
                     .dueDate(LocalDate.of(2024, 12, 10))
                     .paymentDate(LocalDate.of(2024, 12, 1))
                     .status("Partial").paymentMethod("Cash").build());
+
+            paymentRepo.save(FeePayment.builder()
+                    .feeRecordId(r2.getId())
+                    .amountPaid(bd(10000))
+                    .paymentMethod("Cash")
+                    .transactionReference(null)
+                    .receiptNumber("REC-2024-00002")
+                    .paymentDate(LocalDate.of(2024, 12, 1))
+                    .remarks("First installment paid in cash at school counter")
+                    .recordedBy(1L)
+                    .build());
 
             // Student 3 — Arjun Singh — Class 8-A — Unpaid
             recordRepo.save(FeeRecord.builder()
@@ -87,7 +112,7 @@ public class DataInitializer implements CommandLineRunner {
                     .dueDate(LocalDate.of(2024, 12, 10))
                     .status("Unpaid").build());
 
-            System.out.println("✅ Fee records seeded — 3 records.");
+            System.out.println("✅ Fee records & payment ledger seeded — 3 records, 2 payments.");
         }
     }
 

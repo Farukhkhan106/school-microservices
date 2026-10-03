@@ -43,7 +43,7 @@ public class AuthController {
     @GetMapping("/user/{username}")
     public ResponseEntity<UserSummary> getUserByUsername(@PathVariable String username) {
         return userRepository.findByUsername(username.toLowerCase().trim())
-                .map(u -> ResponseEntity.ok(new UserSummary(u.getId(), u.getUsername(), u.getEmail(), u.getRole(), u.getStudentId(), u.getTeacherId())))
+                .map(u -> ResponseEntity.ok(new UserSummary(u.getId(), u.getUsername(), u.getEmail(), u.getRole(), u.getStudentId(), u.getTeacherId(), u.getStaffId())))
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -51,7 +51,7 @@ public class AuthController {
     @GetMapping("/user-by-id/{id}")
     public ResponseEntity<UserSummary> getUserById(@PathVariable Long id) {
         return userRepository.findById(id)
-                .map(u -> ResponseEntity.ok(new UserSummary(u.getId(), u.getUsername(), u.getEmail(), u.getRole(), u.getStudentId(), u.getTeacherId())))
+                .map(u -> ResponseEntity.ok(new UserSummary(u.getId(), u.getUsername(), u.getEmail(), u.getRole(), u.getStudentId(), u.getTeacherId(), u.getStaffId())))
                 .orElse(ResponseEntity.notFound().build());
     }
 

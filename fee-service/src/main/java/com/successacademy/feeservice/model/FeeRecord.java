@@ -23,10 +23,10 @@ public class FeeRecord {
     private String studentName;      // denormalized for display
     private String studentClass;     // e.g. "10-A"
 
-    // Tuition | Transport | Library | Lab | Sports | Other
+    // Tuition | Transport | Library | Lab | Sports | Composite | Customized Fee Plan
     private String feeType;
 
-    private BigDecimal amount;       // total fee due
+    private BigDecimal amount;       // total fee due (from actual fee plan)
     private BigDecimal paidAmount;   // amount already paid
 
     private LocalDate dueDate;
@@ -35,8 +35,14 @@ public class FeeRecord {
     // Paid | Partial | Unpaid | Overdue
     private String status;
 
-    // Cash | Online | Cheque | DD
+    // Cash | Online | Cheque | DD | UPI
     private String paymentMethod;    // nullable
 
     private String remarks;          // nullable
+
+    @Column(name = "fee_plan_id")
+    private Long feePlanId;          // Reference to StudentFeePlan (if generated from custom plan)
+
+    @Column(name = "academic_year")
+    private String academicYear;     // e.g. "2026-27"
 }
