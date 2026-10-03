@@ -43,12 +43,13 @@ public class OpenAIProvider implements AIProvider {
                            Long userId,
                            String role,
                            Long studentId,
-                           Long teacherId) {
+                           Long teacherId,
+                           Long conversationId) {
 
-        // If no API key configured or fallback specified, use deterministic live tool fallback
+        // If no API key configured or fallback specified, use cognitive ERP tool engine
         if (apiKey == null || apiKey.trim().isBlank() || "mock".equalsIgnoreCase(configuredProvider) || "fallback".equalsIgnoreCase(configuredProvider)) {
-            log.info("AI API key not configured or fallback requested. Executing authorized ERP tool fallback.");
-            return fallbackProvider.handleQuery(userMessage, history, userId, role, studentId, teacherId);
+            log.info("AI API key not configured or fallback requested. Executing cognitive ERP tool engine.");
+            return fallbackProvider.handleQuery(userMessage, history, userId, role, studentId, teacherId, conversationId);
         }
 
         try {
@@ -99,40 +100,50 @@ public class OpenAIProvider implements AIProvider {
 
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-                log.warn("AI API returned status {}, falling back to deterministic ERP tools.", response.getStatusCode());
-                return fallbackProvider.handleQuery(userMessage, history, userId, role, studentId, teacherId);
+                log.warn("AI API returned status {}, falling back to cognitive ERP tools.", response.getStatusCode());
+                return fallbackProvider.handleQuery(userMessage, history, userId, role, studentId, teacherId, conversationId);
             }
 
             Map<String, Object> respMap = objectMapper.readValue(response.getBody(), new TypeReference<>() {});
             List<Map<String, Object>> choices = (List<Map<String, Object>>) respMap.get("choices");
             if (choices == null || choices.isEmpty()) {
-                return fallbackProvider.handleQuery(userMessage, history, userId, role, studentId, teacherId);
+                return fallbackProvider.handleQuery(userMessage, history, userId, role, studentId, teacherId, conversationId);
             }
 
             Map<String, Object> firstChoice = choices.get(0);
             Map<String, Object> messageResp = (Map<String, Object>) firstChoice.get("message");
             if (messageResp == null) {
-                return fallbackProvider.handleQuery(userMessage, history, userId, role, studentId, teacherId);
+                return fallbackProvider.handleQuery(userMessage, history, userId, role, studentId, teacherId, conversationId);
             }
 
-            // Check if model wants to call a tool
+            // Check if model wants to call tools (supports multiple tools in one turn)
             List<Map<String, Object>> toolCalls = (List<Map<String, Object>>) messageResp.get("tool_calls");
             if (toolCalls != null && !toolCalls.isEmpty()) {
-                Map<String, Object> firstTool = toolCalls.get(0);
-                Map<String, Object> function = (Map<String, Object>) firstTool.get("function");
-                String toolName = (String) function.get("name");
-                log.info("Model requested tool call: {}", toolName);
-
-                // Execute tool with authorized context
-                String toolOutput = toolExecutionService.executeTool(toolName, Collections.emptyMap(), userId, role, studentId, teacherId);
-
-                // Send tool result back to LLM to produce natural final response
                 messages.add(messageResp);
-                Map<String, Object> toolMsg = new HashMap<>();
-                toolMsg.put("role", "tool");
-                toolMsg.put("tool_call_id", firstTool.get("id"));
-                toolMsg.put("content", toolOutput);
-                messages.add(toolMsg);
+                List<String> invokedNames = new ArrayList<>();
+
+                for (Map<String, Object> toolCall : toolCalls) {
+                    Map<String, Object> function = (Map<String, Object>) toolCall.get("function");
+                    String toolName = (String) function.get("name");
+                    invokedNames.add(toolName);
+                    log.info("Model requested tool call: {}", toolName);
+
+                    Map<String, Object> callArgs = Collections.emptyMap();
+                    try {
+                        String rawArgs = (String) function.get("arguments");
+                        if (rawArgs != null && !rawArgs.isBlank()) {
+                            callArgs = objectMapper.readValue(rawArgs, new TypeReference<>() {});
+                        }
+                    } catch (Exception ignored) {}
+
+                    String toolOutput = toolExecutionService.executeTool(toolName, callArgs, userId, role, studentId, teacherId);
+
+                    Map<String, Object> toolMsg = new HashMap<>();
+                    toolMsg.put("role", "tool");
+                    toolMsg.put("tool_call_id", toolCall.get("id"));
+                    toolMsg.put("content", toolOutput);
+                    messages.add(toolMsg);
+                }
 
                 requestBody.put("messages", messages);
                 requestBody.remove("tools");
@@ -148,14 +159,15 @@ public class OpenAIProvider implements AIProvider {
                         String finalContent = (String) finalMsg.get("content");
                         return AIResponse.builder()
                             .content(finalContent)
-                            .toolUsed(toolName)
+                            .toolUsed(String.join(", ", invokedNames))
+                            .toolsInvoked(invokedNames)
                             .fallbackUsed(false)
                             .build();
                     }
                 }
 
                 // If second LLM call failed, fallback format
-                return fallbackProvider.handleQuery(userMessage, history, userId, role, studentId, teacherId);
+                return fallbackProvider.handleQuery(userMessage, history, userId, role, studentId, teacherId, conversationId);
             }
 
             // Direct text response from LLM
@@ -166,8 +178,8 @@ public class OpenAIProvider implements AIProvider {
                 .build();
 
         } catch (Exception e) {
-            log.error("OpenAI provider call failed: {}, falling back to deterministic live tools.", e.getMessage());
-            return fallbackProvider.handleQuery(userMessage, history, userId, role, studentId, teacherId);
+            log.error("OpenAI provider call failed: {}, falling back to cognitive ERP tools.", e.getMessage());
+            return fallbackProvider.handleQuery(userMessage, history, userId, role, studentId, teacherId, conversationId);
         }
     }
 }

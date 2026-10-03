@@ -8,17 +8,8 @@ import java.util.List;
 
 @Repository
 public interface ClassScheduleRepository extends JpaRepository<ClassSchedule, Long> {
-
-    List<ClassSchedule> findByTeacherIdOrderByDayOfWeekAscPeriodNoAsc(Long teacherId);
-
-    List<ClassSchedule> findByStudentClassAndSectionIgnoreCaseOrderByPeriodNoAsc(String studentClass, String section);
-
-    List<ClassSchedule> findAllByOrderByDayOfWeekAscPeriodNoAsc();
-
-    boolean existsByDayOfWeekIgnoreCaseAndPeriodNoAndTeacherId(String dayOfWeek, int periodNo, Long teacherId);
-
-    boolean existsByDayOfWeekIgnoreCaseAndPeriodNoAndStudentClassAndSectionIgnoreCase(
-            String dayOfWeek, int periodNo, String studentClass, String section);
-
-    List<ClassSchedule> findByDayOfWeekIgnoreCaseOrderByPeriodNoAsc(String dayOfWeek);
+    List<ClassSchedule> findByStudentClassAndSection(String studentClass, String section);
+    List<ClassSchedule> findByTeacherId(Long teacherId);
+    List<ClassSchedule> findByTeacherIdAndDayOfWeek(Long teacherId, String dayOfWeek);
+    List<ClassSchedule> findByStudentClass(String studentClass);
 }

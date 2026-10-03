@@ -1,5 +1,6 @@
 package com.successacademy.facultyservice.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
 import java.util.List;
@@ -7,6 +8,7 @@ import java.util.List;
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor
 @Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class FacultyResponse {
 
     private Long id;
@@ -21,6 +23,10 @@ public class FacultyResponse {
     private String photoUrl;
     private String status;
     private Long userId;
-    private List<String> assignedClasses;
-    private int todayClassesCount;
+
+    private String facultyCode;
+    private String department;
+    private java.time.LocalDate joiningDate;
+    private String employmentType;
+    private java.math.BigDecimal baseSalary;
 }

@@ -19,4 +19,12 @@ public interface FacultyRepository extends JpaRepository<Faculty, Long> {
     Optional<Faculty> findByUserId(Long userId);
 
     Optional<Faculty> findByClassTeacherOf(String className);
+
+    boolean existsByEmail(String email);
+
+    Optional<Faculty> findByEmail(String email);
+
+    Optional<Faculty> findByFacultyCode(String facultyCode);
+
+    boolean existsByFacultyCode(String facultyCode);
 }

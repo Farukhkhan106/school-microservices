@@ -18,4 +18,10 @@ public class FacultyRequest {
     private String photoUrl;
     private String status;
     private Long userId;            // nullable — links to auth user
+
+    private String facultyCode;
+    private String department;
+    private java.time.LocalDate joiningDate;
+    private String employmentType;
+    private java.math.BigDecimal baseSalary;
 }

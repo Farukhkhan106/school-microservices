@@ -25,11 +25,14 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Invalid password");
         }
 
-        if ("INACTIVE".equalsIgnoreCase(user.getStatus())) {
-            throw new RuntimeException("Account is inactive. Please contact the Administrator.");
-        }
-
-        String token = jwtUtil.generateToken(user.getUsername(), user.getRole(), user.getId(), user.getStudentId(), user.getTeacherId());
+        String token = jwtUtil.generateToken(
+                user.getUsername(),
+                user.getRole(),
+                user.getId(),
+                user.getStudentId(),
+                user.getTeacherId(),
+                user.getStaffId()
+        );
 
         return new LoginResponse(
                 user.getId(),
@@ -38,7 +41,8 @@ public class AuthServiceImpl implements AuthService {
                 user.getRole(),
                 token,
                 user.getStudentId(),
-                user.getTeacherId()
+                user.getTeacherId(),
+                user.getStaffId()
         );
     }
 
@@ -56,7 +60,7 @@ public class AuthServiceImpl implements AuthService {
         user.setRole(request.getRole().toUpperCase());
         user.setStudentId(request.getStudentId());
         user.setTeacherId(request.getTeacherId());
-        user.setStatus("ACTIVE");
+        user.setStaffId(request.getStaffId());
 
         User saved = userRepository.save(user);
 
@@ -67,6 +71,7 @@ public class AuthServiceImpl implements AuthService {
                 saved.getRole(),
                 saved.getStudentId(),
                 saved.getTeacherId(),
+                saved.getStaffId(),
                 "User registered successfully"
         );
     }
@@ -75,14 +80,5 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public boolean usernameExists(String username) {
         return userRepository.findByUsername(username.toLowerCase()).isPresent();
-    }
-
-    @Override
-    public void setTeacherStatus(Long teacherId, String status) {
-        if (teacherId == null) return;
-        userRepository.findByTeacherId(teacherId).ifPresent(u -> {
-            u.setStatus(status != null ? status.toUpperCase() : "INACTIVE");
-            userRepository.save(u);
-        });
     }
 }

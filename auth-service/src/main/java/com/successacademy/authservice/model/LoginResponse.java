@@ -18,4 +18,5 @@ public class LoginResponse {
     // Links to role-specific profile
     private Long studentId;    // non-null if role = STUDENT
     private Long teacherId;    // non-null if role = TEACHER
+    private Long staffId;      // non-null if role = STAFF
 }

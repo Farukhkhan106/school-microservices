@@ -97,6 +97,38 @@ public class GalleryController {
         }
     }
 
+    // Upload multiple image files in bulk
+    @PostMapping("/upload-bulk")
+    public ResponseEntity<List<GalleryItem>> uploadBulkImages(
+            @RequestParam("files")                 List<MultipartFile> files,
+            @RequestParam(value = "category",      required = false, defaultValue = "Other") String category,
+            @RequestParam(value = "publicVisible", required = false, defaultValue = "true") boolean publicVisible,
+            @RequestParam(value = "createdBy",     required = false, defaultValue = "admin") String createdBy
+    ) {
+        List<GalleryItem> createdItems = new java.util.ArrayList<>();
+        if (files == null || files.isEmpty()) {
+            return ResponseEntity.badRequest().body(createdItems);
+        }
+
+        for (MultipartFile file : files) {
+            if (!file.isEmpty()) {
+                try {
+                    String originalFilename = file.getOriginalFilename();
+                    String title = originalFilename;
+                    if (originalFilename != null && originalFilename.contains(".")) {
+                        title = originalFilename.substring(0, originalFilename.lastIndexOf('.'));
+                    }
+                    GalleryItem item = service.uploadImage(file, title, "", category, publicVisible, createdBy);
+                    createdItems.add(item);
+                } catch (IOException e) {
+                    // Continue with remaining files
+                }
+            }
+        }
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdItems);
+    }
+
     // Update item
     @PutMapping("/{id}")
     public ResponseEntity<GalleryItem> updateItem(@PathVariable Long id,

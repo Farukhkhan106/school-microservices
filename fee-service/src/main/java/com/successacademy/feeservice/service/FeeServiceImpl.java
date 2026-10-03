@@ -223,6 +223,9 @@ public class FeeServiceImpl implements FeeService {
 
         // 6. Recalculate and transactionally update aggregate on FeeRecord
         BigDecimal newPaid = feePaymentRepository.sumPaidByFeeRecordId(record.getId());
+        if (newPaid == null) {
+            newPaid = currentPaid.add(paymentAmount);
+        }
         record.setPaidAmount(newPaid);
         record.setPaymentDate(paymentDate);
         record.setPaymentMethod(method);

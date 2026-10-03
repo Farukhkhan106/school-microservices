@@ -23,28 +23,36 @@ public class JwtUtil {
 
     private final long EXPIRATION = 1000 * 60 * 60 * 24; // 24 hours
 
-    // CREATE TOKEN
-    public String generateToken(String username, String role) {
-        return generateToken(username, role, null, null);
-    }
-
-    // Full token — carries the authenticated user's id (and linked student / teacher id)
-    // so downstream services (via gateway headers) can authorize ownership.
-    public String generateToken(String username, String role, Long userId, Long studentId) {
-        return generateToken(username, role, userId, studentId, null);
-    }
-
-    public String generateToken(String username, String role, Long userId, Long studentId, Long teacherId) {
-        return Jwts.builder()
+    // CREATE TOKEN (Overload with userId, studentId, teacherId, staffId)
+    public String generateToken(String username, String role, Long userId, Long studentId, Long teacherId, Long staffId) {
+        JwtBuilder builder = Jwts.builder()
                 .setSubject(username)
                 .claim("role", role)
                 .claim("userId", userId)
-                .claim("studentId", studentId)
-                .claim("teacherId", teacherId)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
-                .compact();
+                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION));
+
+        if (studentId != null) {
+            builder.claim("studentId", studentId);
+        }
+        if (teacherId != null) {
+            builder.claim("teacherId", teacherId);
+        }
+        if (staffId != null) {
+            builder.claim("staffId", staffId);
+        }
+
+        return builder.signWith(getSigningKey(), SignatureAlgorithm.HS256).compact();
+    }
+
+    // Overload with studentId, teacherId (backward compatibility)
+    public String generateToken(String username, String role, Long userId, Long studentId, Long teacherId) {
+        return generateToken(username, role, userId, studentId, teacherId, null);
+    }
+
+    // Legacy overload
+    public String generateToken(String username, String role) {
+        return generateToken(username, role, null, null, null, null);
     }
 
     // VALIDATE TOKEN
@@ -62,12 +70,20 @@ public class JwtUtil {
         }
     }
 
+    public Claims extractClaims(String token) {
+        try {
+            return Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public String extractRole(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody()
-                .get("role", String.class);
+        Claims claims = extractClaims(token);
+        return claims != null ? claims.get("role", String.class) : null;
     }
 }

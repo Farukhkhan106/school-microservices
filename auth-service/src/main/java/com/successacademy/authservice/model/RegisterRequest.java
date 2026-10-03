@@ -10,4 +10,5 @@ public class RegisterRequest {
     private String role;       // STUDENT | TEACHER | ADMIN
     private Long studentId;    // nullable
     private Long teacherId;    // nullable
+    private Long staffId;      // nullable
 }

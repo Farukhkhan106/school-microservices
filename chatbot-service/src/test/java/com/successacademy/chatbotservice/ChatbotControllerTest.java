@@ -49,7 +49,7 @@ public class ChatbotControllerTest {
         messageRepository.deleteAll();
         conversationRepository.deleteAll();
 
-        Mockito.when(aiProvider.chat(anyString(), anyString(), any(), any(), any(), any(), any()))
+        Mockito.when(aiProvider.chat(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(AIResponse.builder()
                         .content("Your attendance is 95%.")
                         .toolUsed("getMyAttendance")

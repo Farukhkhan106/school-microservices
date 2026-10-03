@@ -14,5 +14,6 @@ public class RegisterResponse {
     private String role;
     private Long studentId;
     private Long teacherId;
+    private Long staffId;
     private String message;
 }

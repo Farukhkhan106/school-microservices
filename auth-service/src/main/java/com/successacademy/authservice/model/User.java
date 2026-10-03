@@ -21,6 +21,5 @@ public class User {
     // Links to other service entities (nullable)
     private Long studentId;    // FK → student-service students.id
     private Long teacherId;    // FK → faculty-service faculty.id
-
-    private String status = "ACTIVE"; // ACTIVE / INACTIVE
+    private Long staffId;      // FK → staff-service staff.id
 }

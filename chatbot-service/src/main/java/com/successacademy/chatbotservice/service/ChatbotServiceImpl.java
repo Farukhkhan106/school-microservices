@@ -48,7 +48,7 @@ public class ChatbotServiceImpl implements ChatbotService {
         // 4. Construct System Prompt based on role
         String systemPrompt = buildSystemPrompt(role, userId, studentId, teacherId);
 
-        // 5. Query AI Provider (with tool calling or deterministic live fallback)
+        // 5. Query AI Provider (with multi-tool calling or cognitive decomposition)
         AIResponse aiResp = aiProvider.chat(
             request.getMessage(),
             systemPrompt,
@@ -56,7 +56,8 @@ public class ChatbotServiceImpl implements ChatbotService {
             userId,
             role,
             studentId,
-            teacherId
+            teacherId,
+            conversation.getId()
         );
 
         // 6. Save assistant response
@@ -72,6 +73,8 @@ public class ChatbotServiceImpl implements ChatbotService {
             .conversationId(conversation.getId())
             .role(role)
             .toolUsed(aiResp.getToolUsed())
+            .toolsInvoked(aiResp.getToolsInvoked())
+            .actions(aiResp.getActions())
             .timestamp(LocalDateTime.now())
             .build();
     }

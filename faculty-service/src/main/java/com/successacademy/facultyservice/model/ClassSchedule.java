@@ -3,20 +3,12 @@ package com.successacademy.facultyservice.model;
 import jakarta.persistence.*;
 import lombok.*;
 
-/**
- * CLASS TIMETABLE SLOT: one class-section has AT MOST one period per
- * day+periodNo (unique constraint), and one teacher cannot be in two
- * classes at the same time (enforced in the service layer).
- */
 @Entity
-@Table(
-    name = "class_schedule",
-    uniqueConstraints = @UniqueConstraint(
-        columnNames = {"day_of_week", "period_no", "student_class", "section"}
-    )
-)
-@Getter @Setter
-@NoArgsConstructor @AllArgsConstructor
+@Table(name = "class_schedule")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
 public class ClassSchedule {
 
@@ -24,29 +16,27 @@ public class ClassSchedule {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Monday..Sunday (normalized)
-    @Column(name = "day_of_week", nullable = false)
-    private String dayOfWeek;
+    @Column(nullable = false)
+    private Long teacherId;
 
-    @Column(name = "period_no", nullable = false)
-    private int periodNo;          // 1..12
-
-    private String startTime;      // "08:00"
-    private String endTime;        // "08:45"
-
-    @Column(name = "student_class", nullable = false)
-    private String studentClass;   // e.g. "8"
+    private String teacherName;
 
     @Column(nullable = false)
-    private String section;        // e.g. "A"
+    private String studentClass; // e.g. "10", "6", "Nursery"
 
     @Column(nullable = false)
-    private String subject;
+    private String section; // e.g. "A", "B", "C"
 
-    @Column(name = "teacher_id", nullable = false)
-    private Long teacherId;        // FK → faculty.id
+    @Column(nullable = false)
+    private String subject; // e.g. "Mathematics"
 
-    public String getClassSection() {
-        return studentClass + "-" + section;
-    }
+    @Column(nullable = false)
+    private String dayOfWeek; // "Monday", "Tuesday", etc.
+
+    @Column(nullable = false)
+    private Integer periodNo; // 1 to 8
+
+    private String startTime; // "08:00"
+
+    private String endTime; // "08:45"
 }
