@@ -86,7 +86,7 @@ public class FacultyController {
     // ── PUBLIC (NO AUTH — whitelisted in gateway) ───────────────
 
     @GetMapping("/public")
-    public ResponseEntity<List<com.successacademy.facultyservice.dto.PublicFacultyResponse>> publicFaculty() {
+    public ResponseEntity<List<FacultyResponse>> publicFaculty() {
         return ResponseEntity.ok(service.getActiveFaculty());
     }
 

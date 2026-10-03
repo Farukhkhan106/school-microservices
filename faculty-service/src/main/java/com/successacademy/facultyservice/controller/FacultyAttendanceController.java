@@ -23,6 +23,41 @@ public class FacultyAttendanceController {
 
     private final FacultyAttendanceService attendanceService;
     private final SecurityContextUtil securityUtil;
+    private final com.successacademy.facultyservice.repository.FacultyRepository facultyRepository;
+
+    @GetMapping("/my")
+    public ResponseEntity<List<FacultyAttendanceResponse>> getMyAttendance(
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Long teacherId,
+            HttpServletRequest req
+    ) {
+        Long resolvedId = teacherId;
+        Long userId = securityUtil.getCurrentUserId(req);
+        String username = securityUtil.getCurrentUsername(req);
+
+        if (resolvedId == null && userId != null) {
+            com.successacademy.facultyservice.model.Faculty f = facultyRepository.findByUserId(userId).orElse(null);
+            if (f != null) resolvedId = f.getId();
+        }
+        if (resolvedId == null && username != null) {
+            com.successacademy.facultyservice.model.Faculty f = facultyRepository.findByEmail(username).orElse(null);
+            if (f != null) resolvedId = f.getId();
+        }
+        if (resolvedId == null) {
+            return ResponseEntity.ok(List.of());
+        }
+
+        LocalDate now = LocalDate.now();
+        int m = (month != null) ? month : now.getMonthValue();
+        int y = (year != null) ? year : now.getYear();
+
+        LocalDate from = LocalDate.of(y, m, 1);
+        LocalDate to = from.withDayOfMonth(from.lengthOfMonth());
+
+        List<FacultyAttendanceResponse> list = attendanceService.getAttendanceForFaculty(resolvedId, from, to);
+        return ResponseEntity.ok(list);
+    }
 
     @PostMapping("/mark")
     public ResponseEntity<FacultyAttendanceResponse> markAttendance(
@@ -80,7 +115,22 @@ public class FacultyAttendanceController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             HttpServletRequest req
     ) {
-        securityUtil.requireAdmin(req);
+        if (!securityUtil.isAdmin(req)) {
+            Long userId = securityUtil.getCurrentUserId(req);
+            String username = securityUtil.getCurrentUsername(req);
+            boolean isSelf = false;
+            if (userId != null) {
+                com.successacademy.facultyservice.model.Faculty f = facultyRepository.findByUserId(userId).orElse(null);
+                if (f != null && f.getId().equals(facultyId)) isSelf = true;
+            }
+            if (!isSelf && username != null) {
+                com.successacademy.facultyservice.model.Faculty f = facultyRepository.findByEmail(username).orElse(null);
+                if (f != null && f.getId().equals(facultyId)) isSelf = true;
+            }
+            if (!isSelf) {
+                securityUtil.requireAdmin(req);
+            }
+        }
         List<FacultyAttendanceResponse> list = attendanceService.getAttendanceForFaculty(facultyId, from, to);
         return ResponseEntity.ok(list);
     }

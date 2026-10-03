@@ -22,14 +22,61 @@ public class FacultyLeaveController {
 
     private final FacultyLeaveService leaveService;
     private final SecurityContextUtil securityUtil;
+    private final com.successacademy.facultyservice.repository.FacultyRepository facultyRepository;
+
+    @GetMapping("/my")
+    public ResponseEntity<List<FacultyLeaveResponseDto>> getMyLeaves(
+            @RequestParam(required = false) Long teacherId,
+            HttpServletRequest req
+    ) {
+        Long resolvedId = teacherId;
+        Long userId = securityUtil.getCurrentUserId(req);
+        String username = securityUtil.getCurrentUsername(req);
+
+        if (resolvedId == null && userId != null) {
+            com.successacademy.facultyservice.model.Faculty f = facultyRepository.findByUserId(userId).orElse(null);
+            if (f != null) resolvedId = f.getId();
+        }
+        if (resolvedId == null && username != null) {
+            com.successacademy.facultyservice.model.Faculty f = facultyRepository.findByEmail(username).orElse(null);
+            if (f != null) resolvedId = f.getId();
+        }
+        if (resolvedId == null) {
+            return ResponseEntity.ok(List.of());
+        }
+
+        List<FacultyLeaveResponseDto> res = leaveService.getLeavesForFaculty(resolvedId);
+        return ResponseEntity.ok(res);
+    }
 
     @PostMapping("/apply")
     public ResponseEntity<FacultyLeaveResponseDto> applyLeave(
             @RequestBody FacultyLeaveRequestDto request,
             HttpServletRequest req
     ) {
-        securityUtil.requireAdmin(req);
         Long actorUserId = securityUtil.getCurrentUserId(req);
+        String username = securityUtil.getCurrentUsername(req);
+
+        if (!securityUtil.isAdmin(req)) {
+            Long resolvedFacultyId = null;
+            if (actorUserId != null) {
+                com.successacademy.facultyservice.model.Faculty f = facultyRepository.findByUserId(actorUserId).orElse(null);
+                if (f != null) resolvedFacultyId = f.getId();
+            }
+            if (resolvedFacultyId == null && username != null) {
+                com.successacademy.facultyservice.model.Faculty f = facultyRepository.findByEmail(username).orElse(null);
+                if (f != null) resolvedFacultyId = f.getId();
+            }
+            if (resolvedFacultyId == null && request.getFacultyId() != null) {
+                resolvedFacultyId = request.getFacultyId();
+            }
+            if (resolvedFacultyId == null) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Could not resolve faculty identity for current user.");
+            }
+            request.setFacultyId(resolvedFacultyId);
+        }
+
         FacultyLeaveResponseDto res = leaveService.applyLeave(request, actorUserId);
         return ResponseEntity.status(HttpStatus.CREATED).body(res);
     }
@@ -49,7 +96,22 @@ public class FacultyLeaveController {
             @PathVariable Long facultyId,
             HttpServletRequest req
     ) {
-        securityUtil.requireAdmin(req);
+        if (!securityUtil.isAdmin(req)) {
+            Long userId = securityUtil.getCurrentUserId(req);
+            String username = securityUtil.getCurrentUsername(req);
+            boolean isSelf = false;
+            if (userId != null) {
+                com.successacademy.facultyservice.model.Faculty f = facultyRepository.findByUserId(userId).orElse(null);
+                if (f != null && f.getId().equals(facultyId)) isSelf = true;
+            }
+            if (!isSelf && username != null) {
+                com.successacademy.facultyservice.model.Faculty f = facultyRepository.findByEmail(username).orElse(null);
+                if (f != null && f.getId().equals(facultyId)) isSelf = true;
+            }
+            if (!isSelf) {
+                securityUtil.requireAdmin(req);
+            }
+        }
         List<FacultyLeaveResponseDto> res = leaveService.getLeavesForFaculty(facultyId);
         return ResponseEntity.ok(res);
     }
