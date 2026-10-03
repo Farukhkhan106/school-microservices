@@ -35,13 +35,27 @@ public class StudentController {
         return studentService.updateStudent(id, request);
     }
 
-    @GetMapping("/profile/{id}")
+    @GetMapping("/class")
+    public List<StudentResponse> getStudentsByClass(
+            @RequestParam String studentClass,
+            @RequestParam(required = false) String section) {
+        return studentService.getStudentsByClassAndSection(studentClass, section);
+    }
+
+    @GetMapping("/assigned")
+    public List<StudentResponse> getAssignedStudents(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestHeader(value = "X-User-Role", required = false) String role) {
+        return studentService.getAssignedStudents(userId, role);
+    }
+
+    @GetMapping("/profile/{id:[0-9]+}")
     public StudentProfileResponse getMyProfile(@PathVariable Long id, HttpServletRequest request) {
         enforceAccess(id, request);
         return studentService.getMyProfile(id);
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public StudentResponse getStudentById(@PathVariable Long id, HttpServletRequest request) {
         enforceAccess(id, request);
         return studentService.getStudentById(id);
@@ -54,20 +68,6 @@ public class StudentController {
             return studentService.getAssignedStudents(ctx.getUserId(), ctx.getRole());
         }
         return studentService.getAllStudents();
-    }
-
-    @GetMapping("/assigned")
-    public List<StudentResponse> getAssignedStudents(
-            @RequestHeader(value = "X-User-Id", required = false) Long userId,
-            @RequestHeader(value = "X-User-Role", required = false) String role) {
-        return studentService.getAssignedStudents(userId, role);
-    }
-
-    @GetMapping("/class")
-    public List<StudentResponse> getStudentsByClass(
-            @RequestParam String studentClass,
-            @RequestParam(required = false) String section) {
-        return studentService.getStudentsByClassAndSection(studentClass, section);
     }
 
     @DeleteMapping("/{id}")
