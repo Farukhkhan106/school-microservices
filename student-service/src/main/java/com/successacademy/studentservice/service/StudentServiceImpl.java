@@ -30,13 +30,18 @@ public class StudentServiceImpl implements StudentService {
 
     @Override
     public List<StudentResponse> getAssignedStudents(Long userId, String role) {
+        return getAssignedStudents(userId, null, role);
+    }
+
+    @Override
+    public List<StudentResponse> getAssignedStudents(Long userId, Long teacherId, String role) {
         if ("ADMIN".equalsIgnoreCase(role)) {
             return getAllStudents();
         }
-        if (userId == null) {
+        if (userId == null && teacherId == null) {
             return List.of();
         }
-        List<String> allowed = facultyServiceClient.getAllowedClasses(userId);
+        List<String> allowed = facultyServiceClient.getAllowedClasses(userId, teacherId);
         if (allowed == null || allowed.isEmpty()) {
             return List.of();
         }

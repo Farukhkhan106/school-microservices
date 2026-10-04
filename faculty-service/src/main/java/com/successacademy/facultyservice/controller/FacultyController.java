@@ -295,6 +295,31 @@ public class FacultyController {
         return ResponseEntity.ok(res);
     }
 
+    @GetMapping("/internal/allowed-classes")
+    public List<String> getAllowedClasses(
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) Long teacherId) {
+        Long resolvedId = teacherId;
+        if (resolvedId == null && userId != null) {
+            Faculty f = facultyRepository.findByUserId(userId).orElse(null);
+            if (f != null) resolvedId = f.getId();
+        }
+        if (resolvedId == null) {
+            return Collections.emptyList();
+        }
+        Faculty f = facultyRepository.findById(resolvedId).orElse(null);
+        if (f == null) {
+            return Collections.emptyList();
+        }
+        Set<String> classes = new LinkedHashSet<>();
+        if (f.getClassTeacherOf() != null && !f.getClassTeacherOf().isBlank()) {
+            classes.add(f.getClassTeacherOf().trim());
+        }
+        assignmentRepository.findByTeacherId(resolvedId)
+                .forEach(a -> classes.add((a.getStudentClass() + "-" + a.getSection()).trim()));
+        return new ArrayList<>(classes);
+    }
+
     @GetMapping("/teacher/access")
     public ResponseEntity<Map<String, Object>> getTeacherAccess(
             @RequestHeader(value = "X-User-Id", required = false) Long userId,

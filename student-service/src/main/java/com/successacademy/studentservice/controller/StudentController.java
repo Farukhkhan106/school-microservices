@@ -45,8 +45,9 @@ public class StudentController {
     @GetMapping("/assigned")
     public List<StudentResponse> getAssignedStudents(
             @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestHeader(value = "X-Teacher-Id", required = false) Long teacherId,
             @RequestHeader(value = "X-User-Role", required = false) String role) {
-        return studentService.getAssignedStudents(userId, role);
+        return studentService.getAssignedStudents(userId, teacherId, role);
     }
 
     @GetMapping("/profile/{id:[0-9]+}")
@@ -117,7 +118,7 @@ public class StudentController {
             if (target == null) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found");
             }
-            List<String> allowed = facultyServiceClient.getAllowedClasses(ctx.getUserId());
+            List<String> allowed = facultyServiceClient.getAllowedClasses(ctx.getUserId(), ctx.getTeacherId());
             String studentClassSection = target.getStudentClass() + "-" + (target.getSection() != null ? target.getSection().trim() : "");
             boolean hasAccess = allowed != null && allowed.stream().anyMatch(a -> a.equalsIgnoreCase(studentClassSection));
             if (!hasAccess) {

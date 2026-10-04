@@ -21,6 +21,8 @@ public interface StudentService {
 
     List<StudentResponse> getAssignedStudents(Long userId, String role);
 
+    List<StudentResponse> getAssignedStudents(Long userId, Long teacherId, String role);
+
     List<StudentResponse> getStudentsByClassAndSection(String studentClass, String section);
 
     void deleteStudent(Long id);
