@@ -103,19 +103,7 @@ public class DataInitializer implements CommandLineRunner {
                 .description("First periodic assessment testing foundational syllabus units")
                 .build());
 
-        Assessment periodTest = assessmentRepository.save(Assessment.builder()
-                .session(session2526)
-                .name("Period 3 Mathematics Revision Test")
-                .assessmentType(AssessmentType.PERIOD_TEST)
-                .term("Term 1")
-                .startDate(LocalDate.now())
-                .endDate(LocalDate.now())
-                .gradingScheme(cbseScheme)
-                .isRankVisible(false)
-                .status(AssessmentStatus.SCHEDULED)
-                .createdBy(1L)
-                .description("Classroom concept mastery check during regular timetable period")
-                .build());
+
 
         // 4. ASSESSMENT SCHEDULES FOR HALF-YEARLY (CLASS 10-A)
         AssessmentSchedule schMath = scheduleRepository.save(AssessmentSchedule.builder()
@@ -193,21 +181,7 @@ public class DataInitializer implements CommandLineRunner {
                 .status(MarkStatus.VERIFIED)
                 .build());
 
-        // Period 3 test schedule
-        scheduleRepository.save(AssessmentSchedule.builder()
-                .assessment(periodTest)
-                .studentClass("10")
-                .section("A")
-                .subject("Mathematics")
-                .component(AssessmentComponent.THEORY)
-                .examDate(LocalDate.now())
-                .periodNo(3)
-                .teacherId(12L)
-                .teacherName("Mr. Rajesh Sharma")
-                .maxMarks(BigDecimal.valueOf(20.00))
-                .passMarks(BigDecimal.valueOf(7.00))
-                .status(MarkStatus.DRAFT)
-                .build());
+
 
         // 5. SEED STUDENT MARKS FOR CLASS 10-A
         // Students: 55 (Rahul Sharma), 56 (Ananya Patel), 57 (Aarav Joshi), 58 (Sneha Gupta), 59 (Kabir Verma)

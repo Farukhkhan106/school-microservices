@@ -37,6 +37,14 @@ public class AssessmentService {
 
     @Transactional
     public AssessmentResponse createAssessment(AssessmentRequest req, Long actorUserId, String actorRole) {
+        if (req.getAssessmentType() == null || !req.getAssessmentType().isAllowedForNewAssessment()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    String.format("Invalid examination type: %s. Official examinations must be one of: UNIT_TEST (Periodic Assessment), QUARTERLY, HALF_YEARLY, PRE_BOARD, ANNUAL. Classroom-level tests (Weekly, Monthly, Period Revision) must be authored under Classroom Activities.",
+                            req.getAssessmentType())
+            );
+        }
+
         AcademicSession session = sessionRepository.findById(req.getSessionId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Academic session not found with ID: " + req.getSessionId()));
 

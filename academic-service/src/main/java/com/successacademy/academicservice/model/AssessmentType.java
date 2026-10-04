@@ -2,7 +2,7 @@ package com.successacademy.academicservice.model;
 
 public enum AssessmentType {
     PERIOD_TEST("Period / In-Class Test"),
-    UNIT_TEST("Unit Test"),
+    UNIT_TEST("Periodic Assessment (UT)"),
     WEEKLY_TEST("Weekly Test"),
     MONTHLY_TEST("Monthly Assessment"),
     QUARTERLY("Quarterly Examination"),
@@ -19,5 +19,12 @@ public enum AssessmentType {
 
     public String getDisplayName() {
         return displayName;
+    }
+
+    public boolean isAllowedForNewAssessment() {
+        return switch (this) {
+            case UNIT_TEST, QUARTERLY, HALF_YEARLY, PRE_BOARD, ANNUAL -> true;
+            default -> false;
+        };
     }
 }
