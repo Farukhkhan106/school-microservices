@@ -82,8 +82,10 @@ public class SecurityContextUtil {
     public void validateStudentOrAdmin(HttpServletRequest req, Long targetStudentId) {
         if (isAdmin(req) || isTeacher(req)) return;
         Long currentStudentId = getCurrentStudentId(req);
-        if (currentStudentId == null) return;
-        if (!currentStudentId.equals(targetStudentId)) {
+        if (currentStudentId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required: Missing student identity.");
+        }
+        if (targetStudentId == null || !currentStudentId.equals(targetStudentId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: You can only view your own academic records.");
         }
     }

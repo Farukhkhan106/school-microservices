@@ -27,7 +27,8 @@ public class ReportCardController {
             targetStudentId = securityUtil.getCurrentStudentId(req);
         }
         if (targetStudentId == null) {
-            targetStudentId = 1L; // Default fallback to student 1 (Rahul Sharma)
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.UNAUTHORIZED, "Authentication required: Missing student identity.");
         }
 
         // Validate access
@@ -44,7 +45,8 @@ public class ReportCardController {
     ) {
         Long studentId = securityUtil.getCurrentStudentId(req);
         if (studentId == null) {
-            studentId = 1L;
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.UNAUTHORIZED, "Authentication required: Missing student identity.");
         }
         return ResponseEntity.ok(reportCardService.getReportCard(assessmentId, studentId, true));
     }

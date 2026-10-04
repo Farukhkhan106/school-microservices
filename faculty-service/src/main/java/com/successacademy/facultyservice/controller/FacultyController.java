@@ -9,6 +9,9 @@ import com.successacademy.facultyservice.repository.ClassScheduleRepository;
 import com.successacademy.facultyservice.repository.FacultyRepository;
 import com.successacademy.facultyservice.repository.TeachingAssignmentRepository;
 import com.successacademy.facultyservice.service.FacultyService;
+import com.successacademy.facultyservice.security.UserContext;
+import com.successacademy.facultyservice.exception.ForbiddenException;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -108,18 +111,38 @@ public class FacultyController {
     // ── TEACHING ASSIGNMENTS ────────────────────────────────────
 
     @GetMapping("/assignments")
-    public ResponseEntity<List<TeachingAssignment>> getAllAssignments() {
+    public ResponseEntity<List<TeachingAssignment>> getAllAssignments(HttpServletRequest request) {
+        UserContext.requireRole(request, "ADMIN");
         return ResponseEntity.ok(assignmentRepository.findAll());
     }
 
     @GetMapping("/assignments/teacher/{teacherId}")
-    public ResponseEntity<List<TeachingAssignment>> getAssignmentsByTeacher(@PathVariable Long teacherId) {
+    public ResponseEntity<List<TeachingAssignment>> getAssignmentsByTeacher(@PathVariable Long teacherId, HttpServletRequest request) {
+        String role = UserContext.role(request);
+        if (!role.isBlank()) {
+            if (UserContext.isTeacher(request)) {
+                Long authTeacherId = UserContext.teacherId(request);
+                if (authTeacherId == null) {
+                    Long authUserId = UserContext.userId(request);
+                    if (authUserId != null) {
+                        Faculty f = facultyRepository.findByUserId(authUserId).orElse(null);
+                        if (f != null) authTeacherId = f.getId();
+                    }
+                }
+                if (authTeacherId == null || !authTeacherId.equals(teacherId)) {
+                    throw new ForbiddenException("Access denied: You can only view your own teaching assignments");
+                }
+            } else if (!UserContext.isAdmin(request)) {
+                throw new ForbiddenException("Access denied: Insufficient privileges to view teaching assignments");
+            }
+        }
         return ResponseEntity.ok(assignmentRepository.findByTeacherId(teacherId));
     }
 
     @PostMapping("/assignments")
     @ResponseStatus(HttpStatus.CREATED)
-    public ResponseEntity<TeachingAssignment> addAssignment(@RequestBody TeachingAssignment assignment) {
+    public ResponseEntity<TeachingAssignment> addAssignment(@RequestBody TeachingAssignment assignment, HttpServletRequest request) {
+        UserContext.requireRole(request, "ADMIN");
         if (assignment.getTeacherName() == null && assignment.getTeacherId() != null) {
             facultyRepository.findById(assignment.getTeacherId())
                     .ifPresent(f -> assignment.setTeacherName(f.getName()));
@@ -129,7 +152,9 @@ public class FacultyController {
 
     @PutMapping("/assignments/{id}")
     public ResponseEntity<TeachingAssignment> updateAssignment(@PathVariable Long id,
-                                                               @RequestBody TeachingAssignment req) {
+                                                               @RequestBody TeachingAssignment req,
+                                                               HttpServletRequest request) {
+        UserContext.requireRole(request, "ADMIN");
         return assignmentRepository.findById(id).map(existing -> {
             existing.setTeacherId(req.getTeacherId());
             existing.setTeacherName(req.getTeacherName());
@@ -143,7 +168,8 @@ public class FacultyController {
 
     @DeleteMapping("/assignments/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteAssignment(@PathVariable Long id) {
+    public void deleteAssignment(@PathVariable Long id, HttpServletRequest request) {
+        UserContext.requireRole(request, "ADMIN");
         assignmentRepository.deleteById(id);
     }
 
@@ -266,12 +292,23 @@ public class FacultyController {
 
     @GetMapping("/teacher/me")
     public ResponseEntity<Map<String, Object>> getMyProfile(
-            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            HttpServletRequest request,
             @RequestParam(required = false) Long teacherId) {
-        Long resolvedId = teacherId;
-        if (resolvedId == null && userId != null) {
-            Faculty f = facultyRepository.findByUserId(userId).orElse(null);
-            if (f != null) resolvedId = f.getId();
+        UserContext.requireAuthenticated(request);
+        Long resolvedId = null;
+        if (UserContext.isAdmin(request) && teacherId != null) {
+            resolvedId = teacherId;
+        } else {
+            Long authTeacherId = UserContext.teacherId(request);
+            if (authTeacherId != null) {
+                resolvedId = authTeacherId;
+            } else {
+                Long authUserId = UserContext.userId(request);
+                if (authUserId != null) {
+                    Faculty f = facultyRepository.findByUserId(authUserId).orElse(null);
+                    if (f != null) resolvedId = f.getId();
+                }
+            }
         }
         if (resolvedId == null) {
             return ResponseEntity.notFound().build();

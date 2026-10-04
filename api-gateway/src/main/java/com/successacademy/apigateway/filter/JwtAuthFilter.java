@@ -88,65 +88,8 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             }
         }
 
-        // 1. Support Mock / Demo tokens in development
-        if (token != null && token.startsWith("mock-token-")) {
-            String uname = token.substring(11).toLowerCase();
-            String role = "STUDENT";
-            Long uid = 101L;
-            Long sId = 1L;
-            Long tId = null;
-            Long stfId = null;
+        // Token Validation via JWT
 
-            if (uname.contains("admin")) {
-                role = "ADMIN";
-                uid = 1L;
-                sId = null;
-            } else if (uname.contains("teacher") || uname.contains("faculty") || uname.contains("sharma") || uname.contains("priya")) {
-                role = "TEACHER";
-                uid = 201L;
-                tId = 12L;
-                sId = null;
-            } else if (uname.contains("staff") || uname.contains("cleaner") || uname.contains("driver") || uname.contains("suresh") || uname.contains("ram")) {
-                role = "STAFF";
-                uid = 301L;
-                stfId = 1L;
-                sId = null;
-            }
-
-            // Allow client-provided X-Student-Id override if present
-            String clientStudentId = exchange.getRequest().getHeaders().getFirst("X-Student-Id");
-            if (clientStudentId != null && !clientStudentId.isBlank()) {
-                try { sId = Long.parseLong(clientStudentId.trim()); } catch (Exception ignored) {}
-            }
-
-            final String finalRole = role;
-            final Long finalUid = uid;
-            final Long finalSId = sId;
-            final Long finalTId = tId;
-            final Long finalStfId = stfId;
-
-            org.springframework.http.server.reactive.ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
-                    .headers(httpHeaders -> {
-                        httpHeaders.remove("X-User-Id");
-                        httpHeaders.remove("X-User-Role");
-                        httpHeaders.remove("X-Username");
-                        httpHeaders.remove("X-Student-Id");
-                        httpHeaders.remove("X-Teacher-Id");
-                        httpHeaders.remove("X-Staff-Id");
-
-                        httpHeaders.set("X-Username", uname);
-                        httpHeaders.set("X-User-Role", finalRole);
-                        httpHeaders.set("X-User-Id", String.valueOf(finalUid));
-                        if (finalSId != null) httpHeaders.set("X-Student-Id", String.valueOf(finalSId));
-                        if (finalTId != null) httpHeaders.set("X-Teacher-Id", String.valueOf(finalTId));
-                        if (finalStfId != null) httpHeaders.set("X-Staff-Id", String.valueOf(finalStfId));
-                    })
-                    .build();
-
-            return chain.filter(exchange.mutate().request(mutatedRequest).build());
-        }
-
-        // 2. Real JWT Token Validation
         if (token != null && !token.isBlank()) {
             io.jsonwebtoken.Claims claims = jwtUtil.getClaims(token);
             if (claims != null && claims.getSubject() != null) {
