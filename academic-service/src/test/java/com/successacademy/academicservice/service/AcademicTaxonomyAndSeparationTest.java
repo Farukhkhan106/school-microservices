@@ -68,6 +68,19 @@ public class AcademicTaxonomyAndSeparationTest {
     @InjectMocks
     private ActivityResultService resultService;
 
+    // Marks Service Mocks
+    @Mock
+    private AssessmentScheduleRepository scheduleRepository;
+
+    @Mock
+    private StudentMarkRepository markRepository;
+
+    @Mock
+    private RankingEngine rankingEngine;
+
+    @InjectMocks
+    private MarksService marksService;
+
     private AcademicSession activeSession;
 
     @BeforeEach
@@ -551,5 +564,62 @@ public class AcademicTaxonomyAndSeparationTest {
         assertEquals(1, myResults.size());
         assertEquals(501L, myResults.get(0).getStudentId());
         assertEquals(ResultStatus.PUBLISHED, myResults.get(0).getStatus());
+    }
+
+    @Test
+    @DisplayName("21. Marks overview populates enrolled students from student-service when no marks entered yet")
+    void testScheduleMarksOverviewPopulatesEnrolledStudentsWhenNoMarksSavedYet() {
+        Assessment assessment = Assessment.builder()
+                .id(10L)
+                .name("Monthly Test")
+                .assessmentType(AssessmentType.UNIT_TEST)
+                .build();
+
+        AssessmentSchedule schedule = AssessmentSchedule.builder()
+                .id(332L)
+                .assessment(assessment)
+                .studentClass("10")
+                .section("A")
+                .subject("Mathematics")
+                .component(AssessmentComponent.THEORY)
+                .maxMarks(BigDecimal.valueOf(80))
+                .passMarks(BigDecimal.valueOf(27))
+                .status(MarkStatus.DRAFT)
+                .build();
+
+        when(scheduleRepository.findById(332L)).thenReturn(Optional.of(schedule));
+        when(markRepository.findByScheduleIdOrderByRollNoAsc(332L)).thenReturn(Collections.emptyList());
+
+        StudentServiceClient.StudentInfoDto student1 = StudentServiceClient.StudentInfoDto.builder()
+                .id(1L)
+                .firstName("Rahul")
+                .lastName("Sharma")
+                .studentClass("10")
+                .section("A")
+                .rollNo("01")
+                .build();
+
+        StudentServiceClient.StudentInfoDto student2 = StudentServiceClient.StudentInfoDto.builder()
+                .id(2L)
+                .firstName("Priya")
+                .lastName("Singh")
+                .studentClass("10")
+                .section("A")
+                .rollNo("02")
+                .build();
+
+        when(studentServiceClient.getStudentsByClassAndSection("10", "A"))
+                .thenReturn(List.of(student1, student2));
+
+        ScheduleMarksOverviewResponse response = marksService.getMarksForSchedule(332L);
+
+        assertNotNull(response);
+        assertEquals(332L, response.getScheduleId());
+        assertEquals(2, response.getMarks().size());
+        assertEquals("Rahul Sharma", response.getMarks().get(0).getStudentName());
+        assertEquals("01", response.getMarks().get(0).getRollNo());
+        assertNull(response.getMarks().get(0).getMarksObtained());
+        assertEquals("Priya Singh", response.getMarks().get(1).getStudentName());
+        assertEquals("02", response.getMarks().get(1).getRollNo());
     }
 }

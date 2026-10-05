@@ -1,5 +1,6 @@
 package com.successacademy.academicservice.service;
 
+import com.successacademy.academicservice.client.StudentServiceClient;
 import com.successacademy.academicservice.dto.*;
 import com.successacademy.academicservice.model.*;
 import com.successacademy.academicservice.repository.AssessmentScheduleRepository;
@@ -12,8 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +23,7 @@ public class MarksService {
 
     private final AssessmentScheduleRepository scheduleRepository;
     private final StudentMarkRepository markRepository;
+    private final StudentServiceClient studentServiceClient;
     private final GradingService gradingService;
     private final RankingEngine rankingEngine;
     private final AuditLogService auditLogService;
@@ -30,10 +32,63 @@ public class MarksService {
         AssessmentSchedule schedule = scheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Schedule not found with ID: " + scheduleId));
 
-        List<StudentMark> marks = markRepository.findByScheduleIdOrderByRollNoAsc(scheduleId);
-        List<StudentMarkResponse> responses = marks.stream()
-                .map(this::mapToMarkResponse)
-                .toList();
+        List<StudentMark> existingMarks = markRepository.findByScheduleIdOrderByRollNoAsc(scheduleId);
+        Map<Long, StudentMark> markMap = existingMarks.stream()
+                .collect(Collectors.toMap(StudentMark::getStudentId, m -> m, (m1, m2) -> m1));
+
+        // Fetch enrolled students from student-service
+        List<StudentServiceClient.StudentInfoDto> enrolledStudents = studentServiceClient
+                .getStudentsByClassAndSection(schedule.getStudentClass(), schedule.getSection());
+
+        List<StudentMarkResponse> responses = new ArrayList<>();
+        Set<Long> processedStudentIds = new HashSet<>();
+
+        if (enrolledStudents != null && !enrolledStudents.isEmpty()) {
+            for (StudentServiceClient.StudentInfoDto st : enrolledStudents) {
+                processedStudentIds.add(st.getId());
+                StudentMark existing = markMap.get(st.getId());
+                if (existing != null) {
+                    responses.add(mapToMarkResponse(existing));
+                } else {
+                    String fullName = ((st.getFirstName() != null ? st.getFirstName() : "") + " " +
+                            (st.getLastName() != null ? st.getLastName() : "")).trim();
+                    responses.add(StudentMarkResponse.builder()
+                            .id(null)
+                            .scheduleId(schedule.getId())
+                            .studentId(st.getId())
+                            .studentName(fullName.isEmpty() ? "Student #" + st.getId() : fullName)
+                            .rollNo(st.getRollNo())
+                            .marksObtained(null)
+                            .grade(null)
+                            .gradePoint(null)
+                            .isAbsent(false)
+                            .isPassing(false)
+                            .remarks("")
+                            .status(schedule.getStatus())
+                            .build());
+                }
+            }
+        }
+
+        // Also include any marks that might have been saved previously for students not in current active enrolled list
+        for (StudentMark m : existingMarks) {
+            if (!processedStudentIds.contains(m.getStudentId())) {
+                responses.add(mapToMarkResponse(m));
+            }
+        }
+
+        // Sort naturally by Roll No
+        responses.sort((a, b) -> {
+            String rA = a.getRollNo() != null ? a.getRollNo().trim() : "";
+            String rB = b.getRollNo() != null ? b.getRollNo().trim() : "";
+            try {
+                int numA = Integer.parseInt(rA);
+                int numB = Integer.parseInt(rB);
+                return Integer.compare(numA, numB);
+            } catch (NumberFormatException e) {
+                return rA.compareToIgnoreCase(rB);
+            }
+        });
 
         return ScheduleMarksOverviewResponse.builder()
                 .scheduleId(schedule.getId())
