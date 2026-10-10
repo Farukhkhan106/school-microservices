@@ -14,7 +14,7 @@ public class JwtUtil {
     // ⭐ Production-ready: secret comes from environment / application.properties.
     //    Default keeps local development working — CHANGE IT on the live server
     //    (MUST be the same value in api-gateway AND auth-service!)
-    @Value("${app.jwt.secret:MY_SUPER_SECRET_KEY_123456789012345}")
+    @Value("${app.jwt.secret:c3VjY2Vzc19hY2FkZW15X3NlY3VyZV9qd3Rfc2VjcmV0X2tleV8yMDI2X21pbl8zMmNoYXJz}")
     private String secret; // 32+ chars
 
     private Key getSigningKey() {
@@ -23,12 +23,13 @@ public class JwtUtil {
 
     private final long EXPIRATION = 1000 * 60 * 60 * 24; // 24 hours
 
-    // CREATE TOKEN (Overload with userId, studentId, teacherId, staffId)
-    public String generateToken(String username, String role, Long userId, Long studentId, Long teacherId, Long staffId) {
+    // CREATE TOKEN (Overload with userId, studentId, teacherId, staffId, tenantId)
+    public String generateToken(String username, String role, Long userId, Long studentId, Long teacherId, Long staffId, String tenantId) {
         JwtBuilder builder = Jwts.builder()
                 .setSubject(username)
                 .claim("role", role)
                 .claim("userId", userId)
+                .claim("tenantId", (tenantId != null && !tenantId.isBlank()) ? tenantId : "default")
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION));
 
@@ -43,6 +44,10 @@ public class JwtUtil {
         }
 
         return builder.signWith(getSigningKey(), SignatureAlgorithm.HS256).compact();
+    }
+
+    public String generateToken(String username, String role, Long userId, Long studentId, Long teacherId, Long staffId) {
+        return generateToken(username, role, userId, studentId, teacherId, staffId, "default");
     }
 
     // Overload with studentId, teacherId (backward compatibility)

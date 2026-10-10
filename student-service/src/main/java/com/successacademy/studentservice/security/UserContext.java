@@ -12,7 +12,21 @@ public class UserContext {
     private Long studentId;
     private Long teacherId;
 
+    private static final String DEFAULT_GATEWAY_SECRET = "success-academy-secure-internal-gateway-token-2026";
+
     public static UserContext fromRequest(HttpServletRequest request) {
+        String secret = request.getHeader("X-Internal-Secret");
+        String configuredSecret = System.getenv("GATEWAY_INTERNAL_SECRET");
+        if (configuredSecret == null || configuredSecret.isBlank()) {
+            configuredSecret = DEFAULT_GATEWAY_SECRET;
+        }
+
+        if (secret == null || !secret.equals(configuredSecret)) {
+            return UserContext.builder()
+                    .role("ANONYMOUS")
+                    .build();
+        }
+
         String userIdStr = request.getHeader("X-User-Id");
         String roleStr = request.getHeader("X-User-Role");
         String studentIdStr = request.getHeader("X-Student-Id");
@@ -20,7 +34,7 @@ public class UserContext {
 
         return UserContext.builder()
                 .userId(parseId(userIdStr))
-                .role(roleStr != null ? roleStr.trim().toUpperCase() : null)
+                .role(roleStr != null ? roleStr.trim().toUpperCase() : "ANONYMOUS")
                 .studentId(parseId(studentIdStr))
                 .teacherId(parseId(teacherIdStr))
                 .build();

@@ -35,19 +35,23 @@ public class FacultyController {
 
     @PostMapping({"", "/add"})
     @ResponseStatus(HttpStatus.CREATED)
-    public FacultyResponse add(@RequestBody FacultyRequest request) {
+    public FacultyResponse add(@RequestBody FacultyRequest request, HttpServletRequest httpRequest) {
+        UserContext.requireRole(httpRequest, "ADMIN");
         return service.addFaculty(request);
     }
 
     @PutMapping("/{id}")
     public FacultyResponse update(@PathVariable Long id,
-                                  @RequestBody FacultyRequest request) {
+                                  @RequestBody FacultyRequest request,
+                                  HttpServletRequest httpRequest) {
+        UserContext.requireRole(httpRequest, "ADMIN");
         return service.updateFaculty(id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
+    public void delete(@PathVariable Long id, HttpServletRequest httpRequest) {
+        UserContext.requireRole(httpRequest, "ADMIN");
         service.deleteFaculty(id);
     }
 

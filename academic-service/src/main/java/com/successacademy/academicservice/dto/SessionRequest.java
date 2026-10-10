@@ -1,5 +1,6 @@
 package com.successacademy.academicservice.dto;
 
+import com.successacademy.academicservice.model.SessionStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -11,7 +12,9 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Builder
 public class SessionRequest {
-    @NotBlank(message = "Session code is required (e.g. 2025-2026)")
+    private String tenantId;
+
+    @NotBlank(message = "Session code is required (e.g. 2026-2027)")
     private String sessionCode;
 
     @NotBlank(message = "Session name is required")
@@ -23,6 +26,7 @@ public class SessionRequest {
     @NotNull(message = "End date is required")
     private LocalDate endDate;
 
+    private SessionStatus status;
     private boolean isActive;
     private String description;
 }

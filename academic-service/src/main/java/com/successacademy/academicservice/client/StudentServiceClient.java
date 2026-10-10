@@ -95,5 +95,57 @@ public class StudentServiceClient {
         }
         return java.util.Collections.emptyList();
     }
+
+    public java.util.List<StudentInfoDto> getAllStudents() {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-User-Role", "ADMIN");
+            HttpEntity<?> entity = new HttpEntity<>(headers);
+
+            String url = studentServiceUrl + "/students";
+            org.springframework.core.ParameterizedTypeReference<java.util.List<StudentInfoDto>> typeRef =
+                    new org.springframework.core.ParameterizedTypeReference<>() {};
+
+            ResponseEntity<java.util.List<StudentInfoDto>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    typeRef
+            );
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch all students: {}", e.getMessage());
+        }
+        return java.util.Collections.emptyList();
+    }
+
+    public boolean updateStudentPlacement(Long studentId, String studentClass, String section, String rollNo, String status) {
+        if (studentId == null) return false;
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-User-Role", "ADMIN");
+            HttpEntity<?> entity = new HttpEntity<>(headers);
+
+            StringBuilder url = new StringBuilder(studentServiceUrl + "/students/" + studentId + "/academic-placement?");
+            if (studentClass != null) url.append("studentClass=").append(studentClass).append("&");
+            if (section != null) url.append("section=").append(section).append("&");
+            if (rollNo != null) url.append("rollNo=").append(rollNo).append("&");
+            if (status != null) url.append("status=").append(status).append("&");
+
+            ResponseEntity<Void> response = restTemplate.exchange(
+                    url.toString(),
+                    HttpMethod.POST,
+                    entity,
+                    Void.class
+            );
+            return response.getStatusCode().is2xxSuccessful();
+        } catch (Exception e) {
+            log.error("Failed to update placement for studentId={}: {}", studentId, e.getMessage());
+            return false;
+        }
+    }
 }
 

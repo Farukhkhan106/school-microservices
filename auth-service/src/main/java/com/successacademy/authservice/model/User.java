@@ -22,4 +22,6 @@ public class User {
     private Long studentId;    // FK → student-service students.id
     private Long teacherId;    // FK → faculty-service faculty.id
     private Long staffId;      // FK → staff-service staff.id
+
+    private String status = "ACTIVE";
 }

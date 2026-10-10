@@ -25,6 +25,7 @@ public class ActivityController {
     private final ActivitySubmissionService submissionService;
     private final ActivityResultService resultService;
     private final SecurityContextUtil securityUtil;
+    private final com.successacademy.academicservice.service.FileUploadService fileUploadService;
 
     @PostMapping
     public ResponseEntity<ActivityResponse> createActivity(
@@ -189,6 +190,44 @@ public class ActivityController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(resp);
+    }
+
+    @PostMapping(value = "/{activityId}/submissions/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<com.successacademy.academicservice.service.FileUploadService.AttachmentUploadResult> uploadSubmissionAttachment(
+            @PathVariable Long activityId,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            HttpServletRequest req
+    ) {
+        securityUtil.requireStudentOrAdmin(req);
+        Long studentId = securityUtil.getCurrentStudentId(req);
+        if (studentId == null && !securityUtil.isAdmin(req)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "Student identity required");
+        }
+        Long actualStudentId = studentId != null ? studentId : 0L;
+        com.successacademy.academicservice.service.FileUploadService.AttachmentUploadResult result =
+                fileUploadService.uploadSubmissionFile(activityId, actualStudentId, file);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/{activityId}/submissions/attachment/{filename}")
+    public ResponseEntity<org.springframework.core.io.Resource> getSubmissionAttachment(
+            @PathVariable Long activityId,
+            @PathVariable String filename,
+            HttpServletRequest req
+    ) {
+        securityUtil.requireAuthenticated(req);
+        org.springframework.core.io.Resource resource = fileUploadService.loadFileAsResource(filename);
+
+        String contentType = "application/octet-stream";
+        try {
+            String probe = java.nio.file.Files.probeContentType(resource.getFile().toPath());
+            if (probe != null) contentType = probe;
+        } catch (Exception ignored) {}
+
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                .body(resource);
     }
 
     @GetMapping("/{activityId}/submissions")

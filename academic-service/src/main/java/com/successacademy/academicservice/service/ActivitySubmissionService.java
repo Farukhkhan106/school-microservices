@@ -74,6 +74,14 @@ public class ActivitySubmissionService {
         String studentFullName = ((student.getFirstName() != null ? student.getFirstName() : "") + " " +
                 (student.getLastName() != null ? student.getLastName() : "")).trim();
 
+        boolean hasText = req.getSubmissionText() != null && !req.getSubmissionText().trim().isEmpty();
+        boolean hasAttachment = req.getAttachmentUrl() != null && !req.getAttachmentUrl().trim().isEmpty();
+        if (!hasText && !hasAttachment) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Submission must contain either text or an attached file.");
+        }
+
+        String textContent = hasText ? req.getSubmissionText().trim() : "";
+
         ActivitySubmission submission = submissionRepository.findByActivityIdAndStudentId(activityId, studentId)
                 .orElse(null);
 
@@ -83,7 +91,11 @@ public class ActivitySubmissionService {
                     .studentId(studentId)
                     .studentName(studentFullName)
                     .studentAdmissionNo(student.getAdmissionNo())
-                    .submissionText(req.getSubmissionText().trim())
+                    .submissionText(textContent)
+                    .attachmentUrl(req.getAttachmentUrl())
+                    .attachmentName(req.getAttachmentName())
+                    .attachmentSize(req.getAttachmentSize())
+                    .attachmentType(req.getAttachmentType())
                     .submittedAt(LocalDateTime.now())
                     .status(submissionStatus)
                     .attemptNumber(1)
@@ -92,7 +104,13 @@ public class ActivitySubmissionService {
             if (submission.getStatus() == SubmissionStatus.EVALUATED) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot resubmit work that has already been evaluated.");
             }
-            submission.setSubmissionText(req.getSubmissionText().trim());
+            submission.setSubmissionText(textContent);
+            if (hasAttachment) {
+                submission.setAttachmentUrl(req.getAttachmentUrl());
+                submission.setAttachmentName(req.getAttachmentName());
+                submission.setAttachmentSize(req.getAttachmentSize());
+                submission.setAttachmentType(req.getAttachmentType());
+            }
             submission.setSubmittedAt(LocalDateTime.now());
             submission.setStatus(submissionStatus);
             submission.setAttemptNumber(submission.getAttemptNumber() != null ? submission.getAttemptNumber() + 1 : 1);
@@ -162,6 +180,10 @@ public class ActivitySubmissionService {
                 .studentName(s.getStudentName())
                 .studentAdmissionNo(s.getStudentAdmissionNo())
                 .submissionText(s.getSubmissionText())
+                .attachmentUrl(s.getAttachmentUrl())
+                .attachmentName(s.getAttachmentName())
+                .attachmentSize(s.getAttachmentSize())
+                .attachmentType(s.getAttachmentType())
                 .submittedAt(s.getSubmittedAt())
                 .status(s.getStatus())
                 .attemptNumber(s.getAttemptNumber())

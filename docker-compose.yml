@@ -57,7 +57,7 @@ services:
       DB_URL: jdbc:mysql://mysql:3306/authdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       DB_USERNAME: root
       DB_PASSWORD: ${DB_ROOT_PASSWORD:-Farukh@106}
-      JWT_SECRET: ${JWT_SECRET:-MY_SUPER_SECRET_KEY_123456789012345}
+      JWT_SECRET: ${JWT_SECRET:-c3VjY2Vzc19hY2FkZW15X3NlY3VyZV9qd3Rfc2VjcmV0X2tleV8yMDI2X21pbl8zMmNoYXJz}
     networks:
       - school-net
 
@@ -318,7 +318,7 @@ services:
       DB_URL: jdbc:mysql://mysql:3306/communicationdb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       DB_USERNAME: root
       DB_PASSWORD: ${DB_ROOT_PASSWORD:-Farukh@106}
-      JWT_SECRET: ${JWT_SECRET:-MY_SUPER_SECRET_KEY_123456789012345}
+      JWT_SECRET: ${JWT_SECRET:-c3VjY2Vzc19hY2FkZW15X3NlY3VyZV9qd3Rfc2VjcmV0X2tleV8yMDI2X21pbl8zMmNoYXJz}
       AUTH_SERVICE_URL: http://auth-service:8084
       STUDENT_SERVICE_URL: http://student-service:8085
       FACULTY_SERVICE_URL: http://faculty-service:8086
@@ -399,7 +399,7 @@ services:
       PORT: 9000
       EUREKA_URL: http://eureka-server:8761/eureka/
       CORS_ORIGINS: ${CORS_ORIGINS:-https://success-academy-frontend.vercel.app,http://localhost:3000}
-      JWT_SECRET: ${JWT_SECRET:-MY_SUPER_SECRET_KEY_123456789012345}
+      JWT_SECRET: ${JWT_SECRET:-c3VjY2Vzc19hY2FkZW15X3NlY3VyZV9qd3Rfc2VjcmV0X2tleV8yMDI2X21pbl8zMmNoYXJz}
     networks:
       - school-net
 

@@ -38,15 +38,22 @@ public class UserContextFilter extends OncePerRequestFilter {
         }
     }
 
+    @org.springframework.beans.factory.annotation.Value("${app.gateway.internal-secret:${INTERNAL_GATEWAY_SECRET:${GATEWAY_INTERNAL_SECRET:success-academy-secure-internal-gateway-token-2026}}}")
+    private String internalGatewaySecret;
+
     private UserContext resolveUserContext(HttpServletRequest request) {
-        // 1. Check trusted headers injected by API Gateway
+        // 1. Check trusted headers injected by API Gateway only if X-Internal-Secret matches
+        String internalSecret = request.getHeader("X-Internal-Secret");
+        boolean isTrustedInternal = internalSecret != null && internalSecret.equals(internalGatewaySecret);
+
         String gatewayUsername = request.getHeader("X-Username");
         String gatewayRole = request.getHeader("X-User-Role");
         String gatewayUserId = request.getHeader("X-User-Id");
         String gatewayStudentId = request.getHeader("X-Student-Id");
         String gatewayTeacherId = request.getHeader("X-Teacher-Id");
+        String gatewayTenantId = request.getHeader("X-Tenant-Id");
 
-        if (gatewayUsername != null && !gatewayUsername.isBlank()) {
+        if (isTrustedInternal && gatewayUsername != null && !gatewayUsername.isBlank()) {
             Long userId = parseLong(gatewayUserId);
             Long studentId = parseLong(gatewayStudentId);
             Long teacherId = parseLong(gatewayTeacherId);
@@ -57,6 +64,7 @@ public class UserContextFilter extends OncePerRequestFilter {
                     .role(gatewayRole != null ? gatewayRole.toUpperCase() : "STUDENT")
                     .studentId(studentId)
                     .teacherId(teacherId)
+                    .tenantId(gatewayTenantId != null && !gatewayTenantId.isBlank() ? gatewayTenantId.trim() : "default")
                     .build();
         }
 

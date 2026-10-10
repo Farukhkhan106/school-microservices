@@ -7,7 +7,9 @@ import com.successacademy.studentservice.dto.StudentResponse;
 import com.successacademy.studentservice.model.Student;
 import com.successacademy.studentservice.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -27,6 +29,7 @@ public class StudentServiceImpl implements StudentService {
     private final StudentRepository studentRepository;
     private final AuthServiceClient authServiceClient;
     private final FacultyServiceClient facultyServiceClient;
+    private final com.successacademy.studentservice.client.AcademicServiceClient academicServiceClient;
 
     @Override
     public List<StudentResponse> getAssignedStudents(Long userId, String role) {
@@ -98,6 +101,17 @@ public class StudentServiceImpl implements StudentService {
             saved.getAdmissionNo()
         );
 
+        // Auto-enroll into the active academic session (2026-2027)
+        academicServiceClient.enrollInActiveSession(
+            saved.getId(),
+            ((saved.getFirstName() != null ? saved.getFirstName() : "") + " " + (saved.getLastName() != null ? saved.getLastName() : "")).trim(),
+            saved.getAdmissionNo(),
+            saved.getStudentClass(),
+            saved.getSection(),
+            saved.getRollNo(),
+            "default"
+        );
+
         return mapToResponse(saved);
     }
 
@@ -154,7 +168,7 @@ public class StudentServiceImpl implements StudentService {
     @Override
     public StudentProfileResponse getMyProfile(Long id) {
         Student s = studentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Student not found with id: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found with id: " + id));
 
         return StudentProfileResponse.builder()
                 .id(s.getId())
@@ -198,7 +212,7 @@ public class StudentServiceImpl implements StudentService {
     @Override
     public StudentResponse getStudentById(Long id) {
         Student s = studentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Student not found with id: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found with id: " + id));
         return mapToResponse(s);
     }
 
@@ -341,5 +355,27 @@ public class StudentServiceImpl implements StudentService {
         } catch (IOException e) {
             throw new RuntimeException("Could not store file: " + e.getMessage(), e);
         }
+    }
+
+    @Override
+    public StudentResponse updateAcademicPlacement(Long id, String studentClass, String section, String rollNo, String status) {
+        Student s = studentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Student not found with id: " + id));
+
+        if (studentClass != null && !studentClass.isBlank()) {
+            s.setStudentClass(studentClass.trim());
+        }
+        if (section != null && !section.isBlank()) {
+            s.setSection(section.trim());
+        }
+        if (rollNo != null && !rollNo.isBlank()) {
+            s.setRollNo(rollNo.trim());
+        }
+        if (status != null && !status.isBlank()) {
+            s.setStatus(status.trim());
+        }
+
+        Student updated = studentRepository.save(s);
+        return mapToResponse(updated);
     }
 }

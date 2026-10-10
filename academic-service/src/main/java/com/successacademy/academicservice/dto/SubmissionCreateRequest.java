@@ -1,6 +1,5 @@
 package com.successacademy.academicservice.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
@@ -10,7 +9,14 @@ import lombok.*;
 @Builder
 public class SubmissionCreateRequest {
 
-    @NotBlank(message = "Submission content cannot be empty")
     @Size(max = 5000, message = "Submission text cannot exceed 5000 characters")
     private String submissionText;
+
+    private String attachmentUrl;
+
+    private String attachmentName;
+
+    private Long attachmentSize;
+
+    private String attachmentType;
 }

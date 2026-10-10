@@ -18,6 +18,9 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
     private final JwtUtil jwtUtil;
 
+    @org.springframework.beans.factory.annotation.Value("${app.gateway.internal-secret:${GATEWAY_INTERNAL_SECRET:success-academy-secure-internal-gateway-token-2026}}")
+    private String internalGatewaySecret;
+
     /**
      * Public paths — accessible WITHOUT a JWT token.
      * All other paths require Authorization: Bearer <token>
@@ -56,11 +59,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             // Static uploaded images (photos, avatars)
             "/student-service/uploads",
             "/faculty-service/uploads",
-            "/staff-service/uploads",
-
-            // Public academic sessions & published assessments
-            "/academic-service/academic/sessions",
-            "/academic-service/academic/assessments/session"
+            "/staff-service/uploads"
     );
 
     @Override
@@ -68,11 +67,8 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
         String path = exchange.getRequest().getURI().getPath();
 
-        // Allow public paths without token
+        // Check if path is public
         boolean isPublic = PUBLIC_PATHS.stream().anyMatch(path::contains);
-        if (isPublic) {
-            return chain.filter(exchange);
-        }
 
         // Extract Bearer token from Authorization header or from query param for WebSocket handshake
         String token = null;
@@ -89,12 +85,12 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         }
 
         // Token Validation via JWT
-
         if (token != null && !token.isBlank()) {
             io.jsonwebtoken.Claims claims = jwtUtil.getClaims(token);
             if (claims != null && claims.getSubject() != null) {
                 String username = claims.getSubject();
                 String role = claims.get("role", String.class);
+                String tenantId = claims.get("tenantId", String.class);
                 Object userIdObj = claims.get("userId");
                 Object studentIdObj = claims.get("studentId");
                 Object teacherIdObj = claims.get("teacherId");
@@ -108,7 +104,11 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                             httpHeaders.remove("X-Student-Id");
                             httpHeaders.remove("X-Teacher-Id");
                             httpHeaders.remove("X-Staff-Id");
+                            httpHeaders.remove("X-Tenant-Id");
+                            httpHeaders.remove("X-Internal-Secret");
 
+                            httpHeaders.set("X-Internal-Secret", internalGatewaySecret);
+                            httpHeaders.set("X-Tenant-Id", tenantId != null && !tenantId.isBlank() ? tenantId : "default");
                             httpHeaders.set("X-Username", username != null ? username : "");
                             if (role != null) httpHeaders.set("X-User-Role", role);
                             if (userIdObj != null) httpHeaders.set("X-User-Id", String.valueOf(userIdObj));
@@ -122,9 +122,24 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             }
         }
 
-        // 3. Allow Public paths without token
+        // Allow Public paths without token after stripping spoofed headers
         if (isPublic) {
-            return chain.filter(exchange);
+            org.springframework.http.server.reactive.ServerHttpRequest cleanedPublicRequest = exchange.getRequest().mutate()
+                    .headers(httpHeaders -> {
+                        httpHeaders.remove("X-User-Id");
+                        httpHeaders.remove("X-User-Role");
+                        httpHeaders.remove("X-Username");
+                        httpHeaders.remove("X-Student-Id");
+                        httpHeaders.remove("X-Teacher-Id");
+                        httpHeaders.remove("X-Staff-Id");
+                        httpHeaders.remove("X-Tenant-Id");
+                        httpHeaders.remove("X-Internal-Secret");
+
+                        httpHeaders.set("X-Internal-Secret", internalGatewaySecret);
+                        httpHeaders.set("X-Tenant-Id", "default");
+                    })
+                    .build();
+            return chain.filter(exchange.mutate().request(cleanedPublicRequest).build());
         }
 
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);

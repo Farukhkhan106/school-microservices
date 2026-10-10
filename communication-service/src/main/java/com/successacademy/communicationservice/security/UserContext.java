@@ -15,6 +15,7 @@ public class UserContext {
     private String role; // ADMIN, TEACHER, STUDENT
     private Long studentId;
     private Long teacherId;
+    private String tenantId;
 
     public boolean isAdmin() {
         return "ADMIN".equalsIgnoreCase(role);

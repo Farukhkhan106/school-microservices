@@ -8,7 +8,18 @@ import org.springframework.web.server.ResponseStatusException;
 @Component
 public class SecurityContextUtil {
 
+    @org.springframework.beans.factory.annotation.Value("${app.gateway.internal-secret:${INTERNAL_GATEWAY_SECRET:success-academy-secure-internal-gateway-token-2026}}")
+    private String internalGatewaySecret;
+
+    public boolean isTrustedInternalCall(HttpServletRequest req) {
+        String secret = req.getHeader("X-Internal-Secret");
+        return secret != null && secret.equals(internalGatewaySecret);
+    }
+
     public String getCurrentRole(HttpServletRequest req) {
+        if (!isTrustedInternalCall(req)) {
+            return "ANONYMOUS";
+        }
         String role = req.getHeader("X-User-Role");
         if (role == null || role.isBlank()) return "ANONYMOUS";
         String clean = role.trim().toUpperCase();
@@ -19,20 +30,30 @@ public class SecurityContextUtil {
     }
 
     public Long getCurrentUserId(HttpServletRequest req) {
+        if (!isTrustedInternalCall(req)) return null;
         return parseLong(req.getHeader("X-User-Id"));
     }
 
     public Long getCurrentTeacherId(HttpServletRequest req) {
+        if (!isTrustedInternalCall(req)) return null;
         return parseLong(req.getHeader("X-Teacher-Id"));
     }
 
     public Long getCurrentStudentId(HttpServletRequest req) {
+        if (!isTrustedInternalCall(req)) return null;
         return parseLong(req.getHeader("X-Student-Id"));
     }
 
     public String getCurrentUsername(HttpServletRequest req) {
+        if (!isTrustedInternalCall(req)) return null;
         String uname = req.getHeader("X-Username");
         return uname != null ? uname.trim() : null;
+    }
+
+    public String getTenantId(HttpServletRequest req) {
+        if (!isTrustedInternalCall(req)) return "default";
+        String tenant = req.getHeader("X-Tenant-Id");
+        return tenant != null && !tenant.isBlank() ? tenant.trim() : "default";
     }
 
     public boolean isAdmin(HttpServletRequest req) {
@@ -45,6 +66,12 @@ public class SecurityContextUtil {
 
     public boolean isStudent(HttpServletRequest req) {
         return "STUDENT".equals(getCurrentRole(req));
+    }
+
+    public void requireAuthenticated(HttpServletRequest req) {
+        if ("ANONYMOUS".equals(getCurrentRole(req)) || getCurrentUserId(req) == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required.");
+        }
     }
 
     public void requireAdmin(HttpServletRequest req) {

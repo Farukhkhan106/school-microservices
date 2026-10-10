@@ -81,4 +81,14 @@ public class AuthServiceImpl implements AuthService {
     public boolean usernameExists(String username) {
         return userRepository.findByUsername(username.toLowerCase()).isPresent();
     }
+
+    // ── UPDATE TEACHER STATUS ──────────────────────────────────────
+    @Override
+    public void setTeacherStatus(Long teacherId, String status) {
+        if (teacherId == null) return;
+        userRepository.findByTeacherId(teacherId).ifPresent(user -> {
+            user.setStatus(status != null ? status.trim().toUpperCase() : "ACTIVE");
+            userRepository.save(user);
+        });
+    }
 }

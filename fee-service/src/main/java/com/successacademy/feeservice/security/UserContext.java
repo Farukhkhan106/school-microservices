@@ -10,9 +10,25 @@ import jakarta.servlet.http.HttpServletRequest;
  */
 public final class UserContext {
 
+    private static final String DEFAULT_GATEWAY_SECRET = "success-academy-secure-internal-gateway-token-2026";
+
     private UserContext() {}
 
+    public static boolean isTrustedInternalCall(HttpServletRequest request) {
+        if (request == null) return false;
+        String secret = request.getHeader("X-Internal-Secret");
+        String configuredSecret = System.getenv("GATEWAY_INTERNAL_SECRET");
+        if (configuredSecret == null || configuredSecret.isBlank()) {
+            configuredSecret = System.getenv("INTERNAL_GATEWAY_SECRET");
+        }
+        if (configuredSecret == null || configuredSecret.isBlank()) {
+            configuredSecret = DEFAULT_GATEWAY_SECRET;
+        }
+        return secret != null && secret.equals(configuredSecret);
+    }
+
     public static Long userId(HttpServletRequest request) {
+        if (!isTrustedInternalCall(request)) return null;
         String v = request.getHeader("X-User-Id");
         if (v == null || v.isBlank() || "null".equals(v)) return null;
         try {
@@ -23,11 +39,13 @@ public final class UserContext {
     }
 
     public static String role(HttpServletRequest request) {
+        if (!isTrustedInternalCall(request)) return "";
         String r = request.getHeader("X-User-Role");
         return r == null ? "" : r.trim();
     }
 
     public static Long studentId(HttpServletRequest request) {
+        if (!isTrustedInternalCall(request)) return null;
         String s = request.getHeader("X-Student-Id");
         if (s == null || s.isBlank() || "null".equals(s)) return null;
         try {

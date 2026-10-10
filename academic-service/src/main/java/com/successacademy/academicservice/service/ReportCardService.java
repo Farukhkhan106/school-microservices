@@ -23,6 +23,8 @@ public class ReportCardService {
     private final AssessmentRepository assessmentRepository;
     private final StudentMarkRepository markRepository;
     private final StudentResultSummaryRepository summaryRepository;
+    private final com.successacademy.academicservice.client.StudentServiceClient studentServiceClient;
+    private final com.successacademy.academicservice.client.AttendanceServiceClient attendanceServiceClient;
 
     public StudentReportCardResponse getReportCard(Long assessmentId, Long studentId, boolean isStudentOrParent) {
         Assessment assessment = assessmentRepository.findById(assessmentId)
@@ -74,13 +76,27 @@ public class ReportCardService {
 
         String classTeacherRemarks = generateConstructiveRemark(overallGrade);
 
+        // Retrieve real student admission number
+        var studentInfo = studentServiceClient.getStudentById(studentId);
+        String realAdmissionNo = (studentInfo != null && studentInfo.getAdmissionNo() != null && !studentInfo.getAdmissionNo().isBlank())
+                ? studentInfo.getAdmissionNo().trim()
+                : (sample.getRollNo() != null ? sample.getRollNo() : String.valueOf(studentId));
+
+        // Retrieve real attendance statistics from attendance-service
+        var attSummary = attendanceServiceClient.getStudentAttendanceSummary(studentId);
+        BigDecimal realAttendancePercentage = (attSummary != null && attSummary.getTotalDays() > 0)
+                ? BigDecimal.valueOf(attSummary.getOverallPercentage()).setScale(1, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+        int totalWorkingDays = attSummary != null ? (int) attSummary.getTotalDays() : 0;
+        int daysPresent = attSummary != null ? (int) attSummary.getPresentDays() : 0;
+
         return StudentReportCardResponse.builder()
                 .schoolName("Success Academy English Medium Higher Secondary School")
                 .schoolAffiliation("CBSE Pattern Curriculum • Affiliation Code: 1030842 • School Code: 50807")
                 .schoolAddress("Main Campus, Ajanas Road, Satwas, Dist. Dewas (M.P.) - 455459")
                 .studentId(studentId)
                 .studentName(sample.getStudentName())
-                .admissionNo("SA-" + studentId)
+                .admissionNo(realAdmissionNo)
                 .rollNo(sample.getRollNo())
                 .studentClass(sample.getSchedule().getStudentClass())
                 .section(sample.getSchedule().getSection())
@@ -91,9 +107,9 @@ public class ReportCardService {
                 .assessmentType(assessment.getAssessmentType().getDisplayName())
                 .term(assessment.getTerm())
                 .reportIssueDate(LocalDate.now())
-                .attendancePercentage(BigDecimal.valueOf(88.5)) // Default academic session attendance
-                .totalWorkingDays(120)
-                .daysPresent(106)
+                .attendancePercentage(realAttendancePercentage)
+                .totalWorkingDays(totalWorkingDays)
+                .daysPresent(daysPresent)
                 .subjects(subjectDtos)
                 .totalMarksObtained(totalObt)
                 .totalMaxMarks(totalMax)

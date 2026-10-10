@@ -24,14 +24,17 @@ public class StudentController {
 
     @PostMapping("/add")
     @ResponseStatus(HttpStatus.CREATED)
-    public StudentResponse addStudent(@RequestBody StudentRequest request) {
+    public StudentResponse addStudent(@RequestBody StudentRequest request, HttpServletRequest httpRequest) {
+        enforceAdmin(httpRequest);
         return studentService.addStudent(request);
     }
 
     @PutMapping("/{id}")
     public StudentResponse updateStudent(
             @PathVariable Long id,
-            @RequestBody StudentRequest request) {
+            @RequestBody StudentRequest request,
+            HttpServletRequest httpRequest) {
+        enforceAdmin(httpRequest);
         return studentService.updateStudent(id, request);
     }
 
@@ -73,7 +76,8 @@ public class StudentController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteStudent(@PathVariable Long id) {
+    public void deleteStudent(@PathVariable Long id, HttpServletRequest httpRequest) {
+        enforceAdmin(httpRequest);
         studentService.deleteStudent(id);
     }
 
@@ -89,14 +93,40 @@ public class StudentController {
 
     @PostMapping("/upload-photo")
     public java.util.Map<String, String> uploadGeneralPhoto(
-            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            HttpServletRequest httpRequest) {
+        enforceAdmin(httpRequest);
         String url = studentService.uploadGeneralPhoto(file);
         return java.util.Map.of("photoUrl", url);
     }
 
     @PutMapping("/{id}/toggle")
-    public StudentResponse toggleStatus(@PathVariable Long id) {
+    public StudentResponse toggleStatus(@PathVariable Long id, HttpServletRequest httpRequest) {
+        enforceAdmin(httpRequest);
         return studentService.toggleStatus(id);
+    }
+
+    @RequestMapping(value = "/{id}/academic-placement", method = {RequestMethod.PATCH, RequestMethod.PUT, RequestMethod.POST})
+    public StudentResponse updateAcademicPlacement(
+            @PathVariable Long id,
+            @RequestParam(required = false) String studentClass,
+            @RequestParam(required = false) String section,
+            @RequestParam(required = false) String rollNo,
+            @RequestParam(required = false) String status,
+            HttpServletRequest request
+    ) {
+        enforceAccess(id, request);
+        return studentService.updateAcademicPlacement(id, studentClass, section, rollNo, status);
+    }
+
+    private void enforceAdmin(HttpServletRequest request) {
+        UserContext ctx = UserContext.fromRequest(request);
+        if (ctx.getRole() == null) {
+            return; // Internal service call without gateway headers
+        }
+        if (!"ADMIN".equalsIgnoreCase(ctx.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Administrator role required.");
+        }
     }
 
     private void enforceAccess(Long studentId, HttpServletRequest request) {

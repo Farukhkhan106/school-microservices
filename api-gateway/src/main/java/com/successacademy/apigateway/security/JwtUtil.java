@@ -16,7 +16,7 @@ public class JwtUtil {
     // ⭐ Production-ready: secret comes from environment / application.properties.
     //    Default keeps local development working — CHANGE IT on the live server
     //    (MUST be the same value in api-gateway AND auth-service!)
-    @Value("${app.jwt.secret:MY_SUPER_SECRET_KEY_123456789012345}")
+    @Value("${app.jwt.secret:c3VjY2Vzc19hY2FkZW15X3NlY3VyZV9qd3Rfc2VjcmV0X2tleV8yMDI2X21pbl8zMmNoYXJz}")
     private String secret;
 
     private Key getKey() {

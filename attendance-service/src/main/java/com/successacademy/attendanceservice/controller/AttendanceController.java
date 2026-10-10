@@ -24,6 +24,7 @@ public class AttendanceController {
 
     private final AttendanceService service;
     private final FacultyServiceClient facultyServiceClient;
+    private final com.successacademy.attendanceservice.security.SecurityContextUtil securityContextUtil;
 
     // ── TEACHER ─────────────────────────────────────────────────
 
@@ -31,8 +32,9 @@ public class AttendanceController {
     @PostMapping("/mark")
     public ResponseEntity<Attendance> mark(
             @RequestBody AttendanceRequest request,
-            @RequestHeader(value = "X-User-Role", required = false) String role,
-            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
+        String role = securityContextUtil.getCurrentRole(httpRequest);
+        Long userId = securityContextUtil.getCurrentUserId(httpRequest);
         if ("TEACHER".equalsIgnoreCase(role)) {
             if (!facultyServiceClient.hasClassTeacherAccess(userId, request.getStudentClass(), request.getSection())) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN,
@@ -46,8 +48,9 @@ public class AttendanceController {
     @PostMapping("/mark/bulk")
     public ResponseEntity<List<Attendance>> markBulk(
             @RequestBody BulkAttendanceRequest request,
-            @RequestHeader(value = "X-User-Role", required = false) String role,
-            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
+        String role = securityContextUtil.getCurrentRole(httpRequest);
+        Long userId = securityContextUtil.getCurrentUserId(httpRequest);
         if ("TEACHER".equalsIgnoreCase(role) && request.getRecords() != null && !request.getRecords().isEmpty()) {
             AttendanceRequest first = request.getRecords().get(0);
             if (!facultyServiceClient.hasClassTeacherAccess(userId, first.getStudentClass(), first.getSection())) {
@@ -74,9 +77,8 @@ public class AttendanceController {
     @GetMapping("/student/{studentId}")
     public ResponseEntity<List<Attendance>> getStudentAttendance(
             @PathVariable Long studentId,
-            @RequestHeader(value = "X-User-Role", required = false) String role,
-            @RequestHeader(value = "X-Student-Id", required = false) Long currentStudentId) {
-        enforceStudentAccess(studentId, role, currentStudentId);
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
+        enforceStudentAccess(studentId, securityContextUtil.getCurrentRole(httpRequest), securityContextUtil.getCurrentStudentId(httpRequest));
         return ResponseEntity.ok(service.getStudentAttendance(studentId));
     }
 
@@ -86,9 +88,8 @@ public class AttendanceController {
             @PathVariable Long studentId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestHeader(value = "X-User-Role", required = false) String role,
-            @RequestHeader(value = "X-Student-Id", required = false) Long currentStudentId) {
-        enforceStudentAccess(studentId, role, currentStudentId);
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
+        enforceStudentAccess(studentId, securityContextUtil.getCurrentRole(httpRequest), securityContextUtil.getCurrentStudentId(httpRequest));
         return ResponseEntity.ok(
                 service.getStudentAttendanceBetween(studentId, from, to));
     }
@@ -97,9 +98,8 @@ public class AttendanceController {
     @GetMapping("/student/{studentId}/summary")
     public ResponseEntity<AttendanceSummaryResponse> getSummary(
             @PathVariable Long studentId,
-            @RequestHeader(value = "X-User-Role", required = false) String role,
-            @RequestHeader(value = "X-Student-Id", required = false) Long currentStudentId) {
-        enforceStudentAccess(studentId, role, currentStudentId);
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
+        enforceStudentAccess(studentId, securityContextUtil.getCurrentRole(httpRequest), securityContextUtil.getCurrentStudentId(httpRequest));
         return ResponseEntity.ok(service.getStudentSummary(studentId));
     }
 

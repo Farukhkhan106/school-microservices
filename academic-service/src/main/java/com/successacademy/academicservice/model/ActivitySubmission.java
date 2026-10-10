@@ -44,6 +44,18 @@ public class ActivitySubmission {
     @Column(name = "submission_text", length = 5000)
     private String submissionText;
 
+    @Column(name = "attachment_url", length = 500)
+    private String attachmentUrl;
+
+    @Column(name = "attachment_name", length = 255)
+    private String attachmentName;
+
+    @Column(name = "attachment_size")
+    private Long attachmentSize;
+
+    @Column(name = "attachment_type", length = 100)
+    private String attachmentType;
+
     @Column(name = "submitted_at", nullable = false)
     private LocalDateTime submittedAt;
 

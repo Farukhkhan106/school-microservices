@@ -8,7 +8,18 @@ import org.springframework.web.server.ResponseStatusException;
 @Component
 public class SecurityContextUtil {
 
+    @org.springframework.beans.factory.annotation.Value("${app.gateway.internal-secret:${INTERNAL_GATEWAY_SECRET:success-academy-secure-internal-gateway-token-2026}}")
+    private String internalGatewaySecret;
+
+    public boolean isTrustedInternalCall(HttpServletRequest req) {
+        String secret = req.getHeader("X-Internal-Secret");
+        return secret != null && secret.equals(internalGatewaySecret);
+    }
+
     public String getCurrentRole(HttpServletRequest req) {
+        if (!isTrustedInternalCall(req)) {
+            return "ANONYMOUS";
+        }
         String role = req.getHeader("X-User-Role");
         if (role == null || role.isBlank()) return "ANONYMOUS";
         String clean = role.trim().toUpperCase();
@@ -19,13 +30,21 @@ public class SecurityContextUtil {
     }
 
     public Long getCurrentUserId(HttpServletRequest req) {
+        if (!isTrustedInternalCall(req)) return null;
         String idStr = req.getHeader("X-User-Id");
         return parseLong(idStr);
     }
 
     public String getCurrentUsername(HttpServletRequest req) {
+        if (!isTrustedInternalCall(req)) return null;
         String uname = req.getHeader("X-Username");
         return uname != null ? uname.trim() : null;
+    }
+
+    public String getTenantId(HttpServletRequest req) {
+        if (!isTrustedInternalCall(req)) return "default";
+        String tenant = req.getHeader("X-Tenant-Id");
+        return tenant != null && !tenant.isBlank() ? tenant.trim() : "default";
     }
 
     public boolean isAdmin(HttpServletRequest req) {
