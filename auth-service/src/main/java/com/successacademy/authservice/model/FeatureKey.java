@@ -15,6 +15,8 @@ public final class FeatureKey {
     public static final String STAFF = "STAFF";
     public static final String FACULTY = "FACULTY";
     public static final String ACADEMIC_SESSIONS = "ACADEMIC_SESSIONS";
+    public static final String ADMISSIONS = "ADMISSIONS";
+    public static final String GUARDIAN_PORTAL = "GUARDIAN_PORTAL";
 
     public static final List<String> ALL_FEATURES = List.of(
             ATTENDANCE,
@@ -27,7 +29,9 @@ public final class FeatureKey {
             COMMUNICATION,
             STAFF,
             FACULTY,
-            ACADEMIC_SESSIONS
+            ACADEMIC_SESSIONS,
+            ADMISSIONS,
+            GUARDIAN_PORTAL
     );
 
     private FeatureKey() {}

@@ -49,6 +49,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             // Contact form submission (public contact page)
             "/contact-service/contact/submit",
 
+            // Public admissions enquiry / registration
+            "/student-service/admissions/public",
+            "/admissions/public",
+
             // Public fee structure (fees page)
             "/fee-service/fees/structure",
 
@@ -116,6 +120,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                             httpHeaders.remove("X-Student-Id");
                             httpHeaders.remove("X-Teacher-Id");
                             httpHeaders.remove("X-Staff-Id");
+                            httpHeaders.remove("X-Guardian-Id");
                             httpHeaders.remove("X-Tenant-Id");
                             httpHeaders.remove("X-Internal-Secret");
 
@@ -127,6 +132,8 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                             if (studentIdObj != null) httpHeaders.set("X-Student-Id", String.valueOf(studentIdObj));
                             if (teacherIdObj != null) httpHeaders.set("X-Teacher-Id", String.valueOf(teacherIdObj));
                             if (staffIdObj != null) httpHeaders.set("X-Staff-Id", String.valueOf(staffIdObj));
+                            Object guardianIdObj = claims.get("guardianId");
+                            if (guardianIdObj != null) httpHeaders.set("X-Guardian-Id", String.valueOf(guardianIdObj));
                         })
                         .build();
 
@@ -144,6 +151,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                         httpHeaders.remove("X-Student-Id");
                         httpHeaders.remove("X-Teacher-Id");
                         httpHeaders.remove("X-Staff-Id");
+                        httpHeaders.remove("X-Guardian-Id");
                         httpHeaders.remove("X-Tenant-Id");
                         httpHeaders.remove("X-Internal-Secret");
 

@@ -46,8 +46,33 @@ public class JwtUtil {
         return builder.signWith(getSigningKey(), SignatureAlgorithm.HS256).compact();
     }
 
+    public String generateToken(String username, String role, Long userId, Long studentId, Long teacherId, Long staffId, Long guardianId, String tenantId) {
+        JwtBuilder builder = Jwts.builder()
+                .setSubject(username)
+                .claim("role", role)
+                .claim("userId", userId)
+                .claim("tenantId", (tenantId != null && !tenantId.isBlank()) ? tenantId : "default")
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION));
+
+        if (studentId != null) {
+            builder.claim("studentId", studentId);
+        }
+        if (teacherId != null) {
+            builder.claim("teacherId", teacherId);
+        }
+        if (staffId != null) {
+            builder.claim("staffId", staffId);
+        }
+        if (guardianId != null) {
+            builder.claim("guardianId", guardianId);
+        }
+
+        return builder.signWith(getSigningKey(), SignatureAlgorithm.HS256).compact();
+    }
+
     public String generateToken(String username, String role, Long userId, Long studentId, Long teacherId, Long staffId) {
-        return generateToken(username, role, userId, studentId, teacherId, staffId, "default");
+        return generateToken(username, role, userId, studentId, teacherId, staffId, null, "default");
     }
 
     // Overload with studentId, teacherId (backward compatibility)

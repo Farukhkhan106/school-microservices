@@ -54,7 +54,7 @@ public class User {
 
     @Column(name = "user_type", length = 50)
     @Builder.Default
-    private String userType = "STAFF"; // PLATFORM_ADMIN, TENANT_ADMIN, ADMIN_DELEGATE, PRINCIPAL, TEACHER, STAFF, SUPPORT, STUDENT
+    private String userType = "STAFF"; // PLATFORM_ADMIN, TENANT_ADMIN, ADMIN_DELEGATE, PRINCIPAL, TEACHER, STAFF, SUPPORT, STUDENT, GUARDIAN
 
     // Links to other service entities (nullable)
     @Column(name = "student_id")
@@ -65,6 +65,9 @@ public class User {
 
     @Column(name = "staff_id")
     private Long staffId;      // FK → staff-service staff.id
+
+    @Column(name = "guardian_id")
+    private Long guardianId;   // FK → student-service guardians.id
 
     // Multi-tenant key
     @Column(name = "tenant_id", length = 64, nullable = false)

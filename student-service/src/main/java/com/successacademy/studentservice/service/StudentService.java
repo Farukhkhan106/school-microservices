@@ -1,5 +1,6 @@
 package com.successacademy.studentservice.service;
 
+import com.successacademy.studentservice.dto.StudentDetailedProfileResponse;
 import com.successacademy.studentservice.dto.StudentProfileResponse;
 import com.successacademy.studentservice.dto.StudentRequest;
 import com.successacademy.studentservice.dto.StudentResponse;
@@ -16,6 +17,7 @@ public interface StudentService {
 
     StudentProfileResponse getMyProfile(Long id);
 
+    StudentDetailedProfileResponse getDetailedProfile(Long id);
 
     List<StudentResponse> getAllStudents();
 

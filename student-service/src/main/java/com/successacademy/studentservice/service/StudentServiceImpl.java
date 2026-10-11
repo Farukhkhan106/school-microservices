@@ -1,9 +1,8 @@
 package com.successacademy.studentservice.service;
 
 import com.successacademy.studentservice.client.AuthServiceClient;
-import com.successacademy.studentservice.dto.StudentProfileResponse;
-import com.successacademy.studentservice.dto.StudentRequest;
-import com.successacademy.studentservice.dto.StudentResponse;
+import com.successacademy.studentservice.dto.*;
+import com.successacademy.studentservice.security.TenantContext;
 import com.successacademy.studentservice.model.Student;
 import com.successacademy.studentservice.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +29,9 @@ public class StudentServiceImpl implements StudentService {
     private final AuthServiceClient authServiceClient;
     private final FacultyServiceClient facultyServiceClient;
     private final com.successacademy.studentservice.client.AcademicServiceClient academicServiceClient;
+    private final GuardianService guardianService;
+    private final StudentLifecycleService lifecycleService;
+    private final AdmissionApplicationService applicationService;
 
     @Override
     public List<StudentResponse> getAssignedStudents(Long userId, String role) {
@@ -377,5 +379,47 @@ public class StudentServiceImpl implements StudentService {
 
         Student updated = studentRepository.save(s);
         return mapToResponse(updated);
+    }
+
+    @Override
+    public StudentDetailedProfileResponse getDetailedProfile(Long id) {
+        String tenantId = TenantContext.getTenantId();
+        Student s = studentRepository.findById(id)
+                .filter(st -> tenantId.equals(st.getTenantId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found with id: " + id));
+
+        List<StudentGuardianDto> guardians = guardianService.getGuardiansForStudent(id);
+        List<StudentLifecycleLogDto> lifecycleHistory = lifecycleService.getLifecycleHistory(id);
+
+        AdmissionApplicationResponse appDto = null;
+        if (s.getAdmissionId() != null) {
+            try {
+                appDto = applicationService.getApplication(s.getAdmissionId());
+            } catch (Exception ignored) {}
+        }
+
+        return StudentDetailedProfileResponse.builder()
+                .id(s.getId())
+                .tenantId(s.getTenantId())
+                .firstName(s.getFirstName())
+                .lastName(s.getLastName())
+                .admissionNo(s.getAdmissionNo())
+                .rollNo(s.getRollNo())
+                .studentClass(s.getStudentClass())
+                .section(s.getSection())
+                .email(s.getEmail())
+                .phone(s.getPhone())
+                .gender(s.getGender())
+                .dob(s.getDob() != null ? s.getDob() : s.getDateOfBirth())
+                .address(s.getAddress())
+                .status(s.getStatus())
+                .lifecycleStatus(s.getLifecycleStatus())
+                .admissionId(s.getAdmissionId())
+                .createdAt(s.getCreatedAt())
+                .updatedAt(s.getUpdatedAt())
+                .guardians(guardians)
+                .lifecycleHistory(lifecycleHistory)
+                .admissionApplication(appDto)
+                .build();
     }
 }

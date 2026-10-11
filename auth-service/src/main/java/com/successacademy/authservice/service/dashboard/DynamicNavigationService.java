@@ -191,6 +191,19 @@ public class DynamicNavigationService {
                 .displayOrder(1)
                 .build());
 
+        // 1.5 Admissions (Phase 8)
+        list.add(NavigationItemDto.builder()
+                .id("nav_admissions")
+                .key("admissions")
+                .label("Admissions")
+                .icon("UserPlus")
+                .route("/admin/admissions")
+                .section("MANAGEMENT")
+                .requiredFeature(FeatureKey.ADMISSIONS)
+                .requiredPermission("admission.view")
+                .displayOrder(5)
+                .build());
+
         // 2. Students
         list.add(NavigationItemDto.builder()
                 .id("nav_students")
@@ -201,6 +214,19 @@ public class DynamicNavigationService {
                 .section("MANAGEMENT")
                 .requiredPermission("student.view")
                 .displayOrder(10)
+                .build());
+
+        // 2.5 Guardians (Phase 8)
+        list.add(NavigationItemDto.builder()
+                .id("nav_guardians")
+                .key("guardians")
+                .label("Guardians")
+                .icon("HeartHandshake")
+                .route("/admin/guardians")
+                .section("MANAGEMENT")
+                .requiredFeature(FeatureKey.GUARDIAN_PORTAL)
+                .requiredPermission("guardian.view")
+                .displayOrder(15)
                 .build());
 
         // 3. Faculty

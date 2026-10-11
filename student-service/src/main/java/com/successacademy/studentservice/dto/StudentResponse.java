@@ -22,10 +22,14 @@ public class StudentResponse {
     private String email;
     private String phone;
     private String gender;
+    private LocalDate dob;
+    private String address;
     private String studentClass;    // e.g. "10"
     private String section;         // e.g. "A"
     private String rollNo;
     private String status;          // Active / Inactive
+    private String lifecycleStatus; // PROSPECT, APPLICANT, ADMITTED, ACTIVE, INACTIVE, TRANSFERRED, WITHDRAWN, GRADUATED
+    private Long admissionId;
     private String photoUrl;
 
     // Parent info for admin list

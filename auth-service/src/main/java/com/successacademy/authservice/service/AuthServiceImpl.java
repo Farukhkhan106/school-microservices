@@ -54,15 +54,29 @@ public class AuthServiceImpl implements AuthService {
 
         String tenantId = (user.getTenantId() != null && !user.getTenantId().isBlank()) ? user.getTenantId() : "default";
 
-        String token = jwtUtil.generateToken(
-                user.getUsername(),
-                user.getRole(),
-                user.getId(),
-                user.getStudentId(),
-                user.getTeacherId(),
-                user.getStaffId(),
-                tenantId
-        );
+        String token;
+        if (user.getGuardianId() != null) {
+            token = jwtUtil.generateToken(
+                    user.getUsername(),
+                    user.getRole(),
+                    user.getId(),
+                    user.getStudentId(),
+                    user.getTeacherId(),
+                    user.getStaffId(),
+                    user.getGuardianId(),
+                    tenantId
+            );
+        } else {
+            token = jwtUtil.generateToken(
+                    user.getUsername(),
+                    user.getRole(),
+                    user.getId(),
+                    user.getStudentId(),
+                    user.getTeacherId(),
+                    user.getStaffId(),
+                    tenantId
+            );
+        }
 
         List<String> roles = Collections.emptyList();
         List<String> permissions = Collections.emptyList();
