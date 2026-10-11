@@ -25,18 +25,17 @@ public class AcademicConfigurationController {
     private final AcademicConfigurationService configService;
     private final SecurityContextUtil securityContextUtil;
 
-    private void requireAdminOrTrusted(HttpServletRequest request) {
-        if (!securityContextUtil.isTrustedInternalCall(request) && !securityContextUtil.isAdmin(request)) {
-            // Also allow if running in development mode without gateway
+    private void requirePermissionOrTrusted(HttpServletRequest request, String permissionKey) {
+        if (!securityContextUtil.isTrustedInternalCall(request)) {
             String role = securityContextUtil.getCurrentRole(request);
             if (!"ADMIN".equalsIgnoreCase(role) && !"SUPER_ADMIN".equalsIgnoreCase(role)) {
-                // Check if Authorization header is present
                 String auth = request.getHeader("Authorization");
                 if (auth == null || auth.isBlank()) {
-                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin privileges required.");
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Authorization token required.");
                 }
             }
         }
+        securityContextUtil.requirePermission(request, permissionKey);
     }
 
     // ====================================================================
@@ -45,13 +44,18 @@ public class AcademicConfigurationController {
 
     @GetMapping("/classes")
     public ResponseEntity<List<AcademicClassDto>> getClasses(
-            @RequestParam(required = false, defaultValue = "false") boolean activeOnly) {
+            @RequestParam(required = false, defaultValue = "false") boolean activeOnly,
+            HttpServletRequest request) {
+        requirePermissionOrTrusted(request, "academic.class.view");
         String tenantId = TenantContext.getTenantId();
         return ResponseEntity.ok(configService.getClasses(tenantId, activeOnly));
     }
 
     @GetMapping("/classes/{id}")
-    public ResponseEntity<AcademicClassDto> getClassById(@PathVariable Long id) {
+    public ResponseEntity<AcademicClassDto> getClassById(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        requirePermissionOrTrusted(request, "academic.class.view");
         String tenantId = TenantContext.getTenantId();
         return ResponseEntity.ok(configService.getClassById(id, tenantId));
     }
@@ -60,7 +64,7 @@ public class AcademicConfigurationController {
     public ResponseEntity<AcademicClassDto> createClass(
             @Valid @RequestBody CreateAcademicClassRequest req,
             HttpServletRequest request) {
-        requireAdminOrTrusted(request);
+        requirePermissionOrTrusted(request, "academic.class.create");
         String tenantId = TenantContext.getTenantId();
         Long actorId = securityContextUtil.getCurrentUserId(request);
         String actorRole = securityContextUtil.getCurrentRole(request);
@@ -73,7 +77,7 @@ public class AcademicConfigurationController {
             @PathVariable Long id,
             @Valid @RequestBody CreateAcademicClassRequest req,
             HttpServletRequest request) {
-        requireAdminOrTrusted(request);
+        requirePermissionOrTrusted(request, "academic.class.update");
         String tenantId = TenantContext.getTenantId();
         Long actorId = securityContextUtil.getCurrentUserId(request);
         String actorRole = securityContextUtil.getCurrentRole(request);
@@ -85,7 +89,7 @@ public class AcademicConfigurationController {
             @PathVariable Long id,
             @RequestBody Map<String, String> body,
             HttpServletRequest request) {
-        requireAdminOrTrusted(request);
+        requirePermissionOrTrusted(request, "academic.class.status");
         String status = body.get("status");
         if (status == null || status.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "status field is required.");
@@ -102,13 +106,18 @@ public class AcademicConfigurationController {
 
     @GetMapping("/sections")
     public ResponseEntity<List<AcademicSectionDto>> getSections(
-            @RequestParam(required = false, defaultValue = "false") boolean activeOnly) {
+            @RequestParam(required = false, defaultValue = "false") boolean activeOnly,
+            HttpServletRequest request) {
+        requirePermissionOrTrusted(request, "academic.section.view");
         String tenantId = TenantContext.getTenantId();
         return ResponseEntity.ok(configService.getSections(tenantId, activeOnly));
     }
 
     @GetMapping("/sections/{id}")
-    public ResponseEntity<AcademicSectionDto> getSectionById(@PathVariable Long id) {
+    public ResponseEntity<AcademicSectionDto> getSectionById(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        requirePermissionOrTrusted(request, "academic.section.view");
         String tenantId = TenantContext.getTenantId();
         return ResponseEntity.ok(configService.getSectionById(id, tenantId));
     }
@@ -117,7 +126,7 @@ public class AcademicConfigurationController {
     public ResponseEntity<AcademicSectionDto> createSection(
             @Valid @RequestBody CreateAcademicSectionRequest req,
             HttpServletRequest request) {
-        requireAdminOrTrusted(request);
+        requirePermissionOrTrusted(request, "academic.section.create");
         String tenantId = TenantContext.getTenantId();
         Long actorId = securityContextUtil.getCurrentUserId(request);
         String actorRole = securityContextUtil.getCurrentRole(request);
@@ -130,7 +139,7 @@ public class AcademicConfigurationController {
             @PathVariable Long id,
             @Valid @RequestBody CreateAcademicSectionRequest req,
             HttpServletRequest request) {
-        requireAdminOrTrusted(request);
+        requirePermissionOrTrusted(request, "academic.section.update");
         String tenantId = TenantContext.getTenantId();
         Long actorId = securityContextUtil.getCurrentUserId(request);
         String actorRole = securityContextUtil.getCurrentRole(request);
@@ -142,7 +151,7 @@ public class AcademicConfigurationController {
             @PathVariable Long id,
             @RequestBody Map<String, String> body,
             HttpServletRequest request) {
-        requireAdminOrTrusted(request);
+        requirePermissionOrTrusted(request, "academic.section.update");
         String status = body.get("status");
         if (status == null || status.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "status field is required.");
@@ -159,13 +168,18 @@ public class AcademicConfigurationController {
 
     @GetMapping("/subjects")
     public ResponseEntity<List<AcademicSubjectDto>> getSubjects(
-            @RequestParam(required = false, defaultValue = "false") boolean activeOnly) {
+            @RequestParam(required = false, defaultValue = "false") boolean activeOnly,
+            HttpServletRequest request) {
+        requirePermissionOrTrusted(request, "academic.subject.view");
         String tenantId = TenantContext.getTenantId();
         return ResponseEntity.ok(configService.getSubjects(tenantId, activeOnly));
     }
 
     @GetMapping("/subjects/{id}")
-    public ResponseEntity<AcademicSubjectDto> getSubjectById(@PathVariable Long id) {
+    public ResponseEntity<AcademicSubjectDto> getSubjectById(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        requirePermissionOrTrusted(request, "academic.subject.view");
         String tenantId = TenantContext.getTenantId();
         return ResponseEntity.ok(configService.getSubjectById(id, tenantId));
     }
@@ -174,7 +188,7 @@ public class AcademicConfigurationController {
     public ResponseEntity<AcademicSubjectDto> createSubject(
             @Valid @RequestBody CreateAcademicSubjectRequest req,
             HttpServletRequest request) {
-        requireAdminOrTrusted(request);
+        requirePermissionOrTrusted(request, "academic.subject.create");
         String tenantId = TenantContext.getTenantId();
         Long actorId = securityContextUtil.getCurrentUserId(request);
         String actorRole = securityContextUtil.getCurrentRole(request);
@@ -187,7 +201,7 @@ public class AcademicConfigurationController {
             @PathVariable Long id,
             @Valid @RequestBody CreateAcademicSubjectRequest req,
             HttpServletRequest request) {
-        requireAdminOrTrusted(request);
+        requirePermissionOrTrusted(request, "academic.subject.update");
         String tenantId = TenantContext.getTenantId();
         Long actorId = securityContextUtil.getCurrentUserId(request);
         String actorRole = securityContextUtil.getCurrentRole(request);
@@ -199,7 +213,7 @@ public class AcademicConfigurationController {
             @PathVariable Long id,
             @RequestBody Map<String, String> body,
             HttpServletRequest request) {
-        requireAdminOrTrusted(request);
+        requirePermissionOrTrusted(request, "academic.subject.update");
         String status = body.get("status");
         if (status == null || status.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "status field is required.");
@@ -211,7 +225,7 @@ public class AcademicConfigurationController {
     }
 
     // ====================================================================
-    // STRUCTURE AGGREGATION
+    // STRUCTURE AGGREGATION (Public / ERP Wide)
     // ====================================================================
 
     @GetMapping("/structure")
@@ -226,7 +240,9 @@ public class AcademicConfigurationController {
 
     @GetMapping("/sessions/{sessionId}/offerings/sections")
     public ResponseEntity<List<AcademicOfferingDto.ClassSectionOfferingDto>> getSessionClassSections(
-            @PathVariable Long sessionId) {
+            @PathVariable Long sessionId,
+            HttpServletRequest request) {
+        requirePermissionOrTrusted(request, "academic.offering.view");
         String tenantId = TenantContext.getTenantId();
         return ResponseEntity.ok(configService.getSessionClassSections(sessionId, tenantId));
     }
@@ -236,7 +252,7 @@ public class AcademicConfigurationController {
             @PathVariable Long sessionId,
             @RequestBody AcademicOfferingDto.CreateClassSectionOfferingRequest req,
             HttpServletRequest request) {
-        requireAdminOrTrusted(request);
+        requirePermissionOrTrusted(request, "academic.offering.manage");
         String tenantId = TenantContext.getTenantId();
         Long actorId = securityContextUtil.getCurrentUserId(request);
         String actorRole = securityContextUtil.getCurrentRole(request);
@@ -249,7 +265,7 @@ public class AcademicConfigurationController {
             @PathVariable Long sessionId,
             @PathVariable Long id,
             HttpServletRequest request) {
-        requireAdminOrTrusted(request);
+        requirePermissionOrTrusted(request, "academic.offering.manage");
         String tenantId = TenantContext.getTenantId();
         Long actorId = securityContextUtil.getCurrentUserId(request);
         String actorRole = securityContextUtil.getCurrentRole(request);
@@ -259,7 +275,9 @@ public class AcademicConfigurationController {
 
     @GetMapping("/sessions/{sessionId}/offerings/subjects")
     public ResponseEntity<List<AcademicOfferingDto.ClassSubjectOfferingDto>> getSessionClassSubjects(
-            @PathVariable Long sessionId) {
+            @PathVariable Long sessionId,
+            HttpServletRequest request) {
+        requirePermissionOrTrusted(request, "academic.offering.view");
         String tenantId = TenantContext.getTenantId();
         return ResponseEntity.ok(configService.getSessionClassSubjects(sessionId, tenantId));
     }
@@ -269,7 +287,7 @@ public class AcademicConfigurationController {
             @PathVariable Long sessionId,
             @RequestBody AcademicOfferingDto.CreateClassSubjectOfferingRequest req,
             HttpServletRequest request) {
-        requireAdminOrTrusted(request);
+        requirePermissionOrTrusted(request, "academic.offering.manage");
         String tenantId = TenantContext.getTenantId();
         Long actorId = securityContextUtil.getCurrentUserId(request);
         String actorRole = securityContextUtil.getCurrentRole(request);
@@ -282,7 +300,7 @@ public class AcademicConfigurationController {
             @PathVariable Long sessionId,
             @PathVariable Long id,
             HttpServletRequest request) {
-        requireAdminOrTrusted(request);
+        requirePermissionOrTrusted(request, "academic.offering.manage");
         String tenantId = TenantContext.getTenantId();
         Long actorId = securityContextUtil.getCurrentUserId(request);
         String actorRole = securityContextUtil.getCurrentRole(request);

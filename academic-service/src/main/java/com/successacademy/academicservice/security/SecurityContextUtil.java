@@ -98,6 +98,50 @@ public class SecurityContextUtil {
         }
     }
 
+    public boolean hasPermission(HttpServletRequest req, String permissionKey) {
+        if (!isTrustedInternalCall(req)) {
+            return false;
+        }
+        String role = getCurrentRole(req);
+        if ("ADMIN".equals(role) || "TENANT_ADMIN".equals(role) || "SUPER_ADMIN".equals(role) || "PLATFORM_ADMIN".equals(role)) {
+            return true;
+        }
+        if ("ADMIN_DELEGATE".equals(role)) {
+            return !permissionKey.startsWith("tenant.delete") && !permissionKey.startsWith("platform.admin");
+        }
+        if ("PRINCIPAL".equals(role)) {
+            return permissionKey.startsWith("academic.") || permissionKey.startsWith("student.view")
+                    || permissionKey.startsWith("faculty.view") || permissionKey.startsWith("report.")
+                    || permissionKey.startsWith("leave.approve") || permissionKey.startsWith("leave.reject");
+        }
+        if ("TEACHER".equals(role)) {
+            return "academic.class.view".equals(permissionKey)
+                    || "academic.section.view".equals(permissionKey)
+                    || "academic.subject.view".equals(permissionKey)
+                    || "academic.offering.view".equals(permissionKey)
+                    || "academic.session.view".equals(permissionKey)
+                    || "student.view".equals(permissionKey)
+                    || permissionKey.startsWith("attendance.")
+                    || permissionKey.startsWith("activity.")
+                    || permissionKey.startsWith("exam.");
+        }
+        if ("STUDENT".equals(role)) {
+            return "academic.session.view".equals(permissionKey)
+                    || "student.view".equals(permissionKey)
+                    || "attendance.view".equals(permissionKey)
+                    || "fees.view".equals(permissionKey)
+                    || "exam.view".equals(permissionKey)
+                    || "activity.view".equals(permissionKey);
+        }
+        return false;
+    }
+
+    public void requirePermission(HttpServletRequest req, String permissionKey) {
+        if (!hasPermission(req, permissionKey)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Missing required permission '" + permissionKey + "'.");
+        }
+    }
+
     public void validateTeacherOrAdminForSchedule(HttpServletRequest req, Long assignedTeacherId) {
         if (isAdmin(req)) return;
         Long currentTeacherId = getCurrentTeacherId(req);

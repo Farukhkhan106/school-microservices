@@ -1,19 +1,34 @@
 package com.successacademy.authservice.service;
 
+import com.successacademy.authservice.dto.rbac.EffectiveAuthorizationResponse;
 import com.successacademy.authservice.model.*;
+import com.successacademy.authservice.model.entity.Role;
+import com.successacademy.authservice.model.entity.UserRole;
+import com.successacademy.authservice.repository.RoleRepository;
 import com.successacademy.authservice.repository.UserRepository;
+import com.successacademy.authservice.repository.UserRoleRepository;
 import com.successacademy.authservice.security.JwtUtil;
+import com.successacademy.authservice.service.rbac.RbacService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final UserRoleRepository userRoleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final RbacService rbacService;
 
     // ── LOGIN ────────────────────────────────────────────────────
     @Override
@@ -25,6 +40,8 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Invalid password");
         }
 
+        String tenantId = (user.getTenantId() != null && !user.getTenantId().isBlank()) ? user.getTenantId() : "default";
+
         String token = jwtUtil.generateToken(
                 user.getUsername(),
                 user.getRole(),
@@ -32,20 +49,38 @@ public class AuthServiceImpl implements AuthService {
                 user.getStudentId(),
                 user.getTeacherId(),
                 user.getStaffId(),
-                user.getTenantId() != null ? user.getTenantId() : "default"
+                tenantId
         );
 
-        return new LoginResponse(
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
-                user.getRole(),
-                token,
-                user.getStudentId(),
-                user.getTeacherId(),
-                user.getStaffId(),
-                user.getTenantId() != null ? user.getTenantId() : "default"
-        );
+        List<String> roles = Collections.emptyList();
+        List<String> permissions = Collections.emptyList();
+        Map<String, String> scopes = Collections.emptyMap();
+
+        try {
+            EffectiveAuthorizationResponse authz = rbacService.getEffectiveAuthorization(user.getId(), tenantId);
+            if (authz != null) {
+                roles = authz.getRoles();
+                permissions = authz.getPermissions();
+                scopes = authz.getPermissionScopes();
+            }
+        } catch (Exception ex) {
+            log.warn("Could not resolve effective permissions for user {}: {}", user.getUsername(), ex.getMessage());
+        }
+
+        return LoginResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .token(token)
+                .studentId(user.getStudentId())
+                .teacherId(user.getTeacherId())
+                .staffId(user.getStaffId())
+                .tenantId(tenantId)
+                .roles(roles)
+                .permissions(permissions)
+                .permissionScopes(scopes)
+                .build();
     }
 
     // ── REGISTER ─────────────────────────────────────────────────
@@ -63,8 +98,32 @@ public class AuthServiceImpl implements AuthService {
         user.setStudentId(request.getStudentId());
         user.setTeacherId(request.getTeacherId());
         user.setStaffId(request.getStaffId());
+        user.setTenantId("default");
 
         User saved = userRepository.save(user);
+
+        // Bind role in user_roles table
+        try {
+            String roleCode = saved.getRole();
+            if ("ADMIN".equals(roleCode)) roleCode = "TENANT_ADMIN";
+            final String lookup = roleCode;
+            Role role = roleRepository.findByRoleCodeAndTenantIdIsNull(lookup)
+                    .or(() -> roleRepository.findByRoleCodeAndTenantId(lookup, "default"))
+                    .orElse(null);
+
+            if (role != null) {
+                UserRole ur = UserRole.builder()
+                        .user(saved)
+                        .role(role)
+                        .tenantId("default")
+                        .isPrimary(true)
+                        .assignedBy("SYSTEM_REGISTRATION")
+                        .build();
+                userRoleRepository.save(ur);
+            }
+        } catch (Exception ex) {
+            log.warn("Could not bind user_roles during registration for {}: {}", saved.getUsername(), ex.getMessage());
+        }
 
         return new RegisterResponse(
                 saved.getId(),
