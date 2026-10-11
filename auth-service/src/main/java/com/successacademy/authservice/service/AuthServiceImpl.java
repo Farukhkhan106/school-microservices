@@ -31,7 +31,8 @@ public class AuthServiceImpl implements AuthService {
                 user.getId(),
                 user.getStudentId(),
                 user.getTeacherId(),
-                user.getStaffId()
+                user.getStaffId(),
+                user.getTenantId() != null ? user.getTenantId() : "default"
         );
 
         return new LoginResponse(
@@ -42,7 +43,8 @@ public class AuthServiceImpl implements AuthService {
                 token,
                 user.getStudentId(),
                 user.getTeacherId(),
-                user.getStaffId()
+                user.getStaffId(),
+                user.getTenantId() != null ? user.getTenantId() : "default"
         );
     }
 

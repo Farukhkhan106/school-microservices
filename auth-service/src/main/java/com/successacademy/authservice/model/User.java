@@ -22,6 +22,9 @@ public class User {
     private Long studentId;    // FK → student-service students.id
     private Long teacherId;    // FK → faculty-service faculty.id
     private Long staffId;      // FK → staff-service staff.id
+    // Multi-tenant key
+    @Column(name = "tenant_id", length = 64)
+    private String tenantId = "default";
 
     private String status = "ACTIVE";
 }

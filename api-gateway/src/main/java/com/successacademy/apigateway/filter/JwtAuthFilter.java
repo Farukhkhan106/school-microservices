@@ -26,11 +26,13 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
      * All other paths require Authorization: Bearer <token>
      */
     private static final List<String> PUBLIC_PATHS = List.of(
-            // Auth
+            // Auth & Multi-tenant Configuration
             "/auth-service/auth/login",
             "/auth-service/auth/register",
             "/auth-service/auth/exists",
             "/auth-service/auth/change-password",
+            "/auth-service/configuration/effective",
+            "/configuration/effective",
 
             // Public notices (homepage + notices page)
             "/notice-service/notice/public",

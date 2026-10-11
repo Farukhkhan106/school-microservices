@@ -47,7 +47,7 @@ class AuthServiceTest {
 
         when(userRepository.findByUsername("teacher_john")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("secret123", "hashed_secret")).thenReturn(true);
-        when(jwtUtil.generateToken(eq("teacher_john"), eq("TEACHER"), eq(10L), isNull(), eq(101L), isNull()))
+        when(jwtUtil.generateToken(eq("teacher_john"), eq("TEACHER"), eq(10L), isNull(), eq(101L), isNull(), eq("default")))
                 .thenReturn("mock.jwt.token");
 
         LoginRequest req = new LoginRequest("teacher_john", "secret123");

@@ -19,4 +19,6 @@ public class LoginResponse {
     private Long studentId;    // non-null if role = STUDENT
     private Long teacherId;    // non-null if role = TEACHER
     private Long staffId;      // non-null if role = STAFF
+
+    private String tenantId;   // Multi-tenant key
 }
