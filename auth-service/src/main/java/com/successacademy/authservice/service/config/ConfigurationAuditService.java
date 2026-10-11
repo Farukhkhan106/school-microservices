@@ -17,6 +17,12 @@ public class ConfigurationAuditService {
     private final ConfigurationAuditLogRepository repository;
 
     public void log(String tenantKey, String environmentKey, String actorUsername, String actorRole, String action, String details) {
+        log(tenantKey, environmentKey, actorUsername, actorRole, action, details, null, null);
+    }
+
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public void log(String tenantKey, String environmentKey, String actorUsername, String actorRole,
+                    String action, String details, Integer targetVersionNumber, String diffSummary) {
         try {
             ConfigurationAuditLog entry = ConfigurationAuditLog.builder()
                     .tenantKey(tenantKey != null ? tenantKey : "default")
@@ -25,6 +31,8 @@ public class ConfigurationAuditService {
                     .actorRole(actorRole != null ? actorRole : "SYSTEM")
                     .action(action)
                     .details(details)
+                    .targetVersionNumber(targetVersionNumber)
+                    .diffSummary(diffSummary)
                     .timestamp(LocalDateTime.now())
                     .build();
             repository.save(entry);
@@ -34,6 +42,7 @@ public class ConfigurationAuditService {
     }
 
     public List<ConfigurationAuditLog> getLogsForTenant(String tenantKey) {
-        return repository.findByTenantKeyOrderByTimestampDesc(tenantKey);
+        String cleanTenant = (tenantKey != null && !tenantKey.isBlank()) ? tenantKey.trim() : "default";
+        return repository.findByTenantKeyOrderByTimestampDesc(cleanTenant);
     }
 }

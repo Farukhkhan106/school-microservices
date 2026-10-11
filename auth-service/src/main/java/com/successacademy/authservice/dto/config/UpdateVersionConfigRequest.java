@@ -14,6 +14,7 @@ import java.util.Map;
 public class UpdateVersionConfigRequest {
 
     private String changeSummary;
+    private Long optLockVersion;
     // Map of category -> config object / JSON
     private Map<String, Object> categories;
 }

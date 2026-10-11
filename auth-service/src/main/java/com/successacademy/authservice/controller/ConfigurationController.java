@@ -1,6 +1,7 @@
 package com.successacademy.authservice.controller;
 
 import com.successacademy.authservice.dto.config.*;
+import com.successacademy.authservice.model.entity.ConfigurationAuditLog;
 import com.successacademy.authservice.security.SecurityContextUtil;
 import com.successacademy.authservice.security.TenantContext;
 import com.successacademy.authservice.service.config.*;
@@ -20,21 +21,20 @@ public class ConfigurationController {
 
     private final ConfigurationResolverService resolverService;
     private final ConfigurationVersionService versionService;
+    private final ConfigurationValidationService validationService;
+    private final ConfigurationDiffService diffService;
+    private final ConfigurationAuditService auditService;
     private final FeatureEntitlementService featureService;
     private final SecurityContextUtil securityContextUtil;
 
     /**
      * Resolves effective configuration for the current tenant and runtime environment.
-     * Public endpoint: Accessible unauthenticated (uses default tenant or host context)
-     * or authenticated (uses verified JWT tenant).
      */
     @GetMapping("/effective")
     public ResponseEntity<EffectiveConfigResponse> getEffectiveConfig(
             @RequestParam(value = "tenant", required = false) String tenantParam,
             HttpServletRequest request) {
 
-        // For security: only an authenticated ADMIN can query arbitrary tenant overrides via param.
-        // Normal requests resolve from server-side verified TenantContext.
         String resolvedTenant = TenantContext.getTenantId();
         if (tenantParam != null && !tenantParam.isBlank() && securityContextUtil.isAdmin(request)) {
             resolvedTenant = tenantParam.trim();
@@ -56,6 +56,28 @@ public class ConfigurationController {
                 ? tenantParam.trim()
                 : TenantContext.getTenantId();
         return ResponseEntity.ok(versionService.listVersions(targetTenant));
+    }
+
+    /**
+     * Get single version metadata. (ADMIN required)
+     */
+    @GetMapping("/versions/{versionId}")
+    public ResponseEntity<VersionInfoDto> getVersionDetails(
+            @PathVariable Long versionId,
+            HttpServletRequest request) {
+        securityContextUtil.requireAdmin(request);
+        return ResponseEntity.ok(versionService.getVersionDetails(versionId));
+    }
+
+    /**
+     * Get categories for a specific configuration version. (ADMIN required)
+     */
+    @GetMapping("/versions/{versionId}/categories")
+    public ResponseEntity<Map<String, Object>> getVersionCategories(
+            @PathVariable Long versionId,
+            HttpServletRequest request) {
+        securityContextUtil.requireAdmin(request);
+        return ResponseEntity.ok(versionService.getVersionCategories(versionId));
     }
 
     /**
@@ -84,6 +106,17 @@ public class ConfigurationController {
     }
 
     /**
+     * Validate a configuration version before publishing. (ADMIN required)
+     */
+    @PostMapping("/versions/{versionId}/validate")
+    public ResponseEntity<ConfigValidationResultDto> validateVersion(
+            @PathVariable Long versionId,
+            HttpServletRequest request) {
+        securityContextUtil.requireAdmin(request);
+        return ResponseEntity.ok(versionService.validateDraft(versionId));
+    }
+
+    /**
      * Publish a draft configuration version. (ADMIN required)
      */
     @PostMapping("/versions/{versionId}/publish")
@@ -93,6 +126,70 @@ public class ConfigurationController {
         securityContextUtil.requireAdmin(request);
         String actor = securityContextUtil.getCurrentUsername(request);
         return ResponseEntity.ok(versionService.publishVersion(versionId, actor));
+    }
+
+    /**
+     * Rollback to a historical configuration version non-destructively. (ADMIN required)
+     */
+    @PostMapping("/versions/{versionId}/rollback")
+    public ResponseEntity<VersionInfoDto> rollbackVersion(
+            @PathVariable Long versionId,
+            HttpServletRequest request) {
+        securityContextUtil.requireAdmin(request);
+        String actor = securityContextUtil.getCurrentUsername(request);
+        return ResponseEntity.ok(versionService.rollbackVersion(versionId, actor));
+    }
+
+    /**
+     * Compare two configuration versions (Base vs Target). (ADMIN required)
+     */
+    @GetMapping("/versions/diff")
+    public ResponseEntity<ConfigDiffResponseDto> computeDiff(
+            @RequestParam("baseVersionId") Long baseVersionId,
+            @RequestParam("targetVersionId") Long targetVersionId,
+            HttpServletRequest request) {
+        securityContextUtil.requireAdmin(request);
+        return ResponseEntity.ok(diffService.computeDiff(baseVersionId, targetVersionId));
+    }
+
+    /**
+     * Export configuration bundle. (ADMIN required)
+     */
+    @GetMapping("/export")
+    public ResponseEntity<ExportConfigResponse> exportConfiguration(
+            @RequestParam(value = "versionId", required = false) Long versionId,
+            @RequestParam(value = "tenant", required = false) String tenantParam,
+            HttpServletRequest request) {
+        securityContextUtil.requireAdmin(request);
+        String actor = securityContextUtil.getCurrentUsername(request);
+        return ResponseEntity.ok(versionService.exportConfiguration(versionId, tenantParam, actor));
+    }
+
+    /**
+     * Import configuration bundle into a new draft version. (ADMIN required)
+     */
+    @PostMapping("/import")
+    public ResponseEntity<VersionInfoDto> importConfiguration(
+            @RequestParam(value = "tenant", required = false) String tenantParam,
+            @RequestBody ImportConfigRequest req,
+            HttpServletRequest request) {
+        securityContextUtil.requireAdmin(request);
+        String actor = securityContextUtil.getCurrentUsername(request);
+        return ResponseEntity.ok(versionService.importConfiguration(tenantParam, req, actor));
+    }
+
+    /**
+     * Get configuration audit history. (ADMIN required)
+     */
+    @GetMapping("/audit")
+    public ResponseEntity<List<ConfigurationAuditLog>> getAuditLogs(
+            @RequestParam(value = "tenant", required = false) String tenantParam,
+            HttpServletRequest request) {
+        securityContextUtil.requireAdmin(request);
+        String targetTenant = (tenantParam != null && !tenantParam.isBlank())
+                ? tenantParam.trim()
+                : TenantContext.getTenantId();
+        return ResponseEntity.ok(auditService.getLogsForTenant(targetTenant));
     }
 
     /**

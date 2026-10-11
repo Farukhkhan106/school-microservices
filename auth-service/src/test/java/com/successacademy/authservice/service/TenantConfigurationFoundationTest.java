@@ -52,8 +52,9 @@ class TenantConfigurationFoundationTest {
         resolverService = new ConfigurationResolverService(
                 tenantRepository, environmentRepository, versionRepository, configRepository, featureService, objectMapper
         );
+        ConfigurationValidationService validationService = new ConfigurationValidationService(objectMapper);
         versionService = new ConfigurationVersionService(
-                versionRepository, configRepository, auditService, resolverService, objectMapper
+                versionRepository, configRepository, auditService, resolverService, validationService, objectMapper
         );
         tenantManagementService = new TenantManagementService(
                 tenantRepository, versionRepository, configRepository, auditService, resolverService, objectMapper
