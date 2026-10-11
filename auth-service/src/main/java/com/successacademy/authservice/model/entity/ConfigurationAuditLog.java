@@ -34,10 +34,16 @@ public class ConfigurationAuditLog {
     private String actorRole;
 
     @Column(name = "action", nullable = false, length = 64)
-    private String action; // CREATE_TENANT, CREATE_VERSION, PUBLISH_VERSION, UPDATE_CONFIG, TOGGLE_FEATURE
+    private String action; // CREATE_DRAFT, UPDATE_DRAFT, VALIDATE, PUBLISH, ROLLBACK, ARCHIVE, FEATURE_ENABLE, FEATURE_DISABLE, IMPORT, EXPORT, APPROVAL_REQUESTED, APPROVED, REJECTED
+
+    @Column(name = "target_version_number")
+    private Integer targetVersionNumber;
 
     @Column(name = "details", length = 1000)
     private String details;
+
+    @Column(name = "diff_summary", columnDefinition = "TEXT")
+    private String diffSummary;
 
     @Column(name = "timestamp", nullable = false, updatable = false)
     private LocalDateTime timestamp;

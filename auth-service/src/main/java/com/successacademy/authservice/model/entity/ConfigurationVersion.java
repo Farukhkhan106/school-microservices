@@ -36,16 +36,37 @@ public class ConfigurationVersion {
 
     @Column(name = "status", nullable = false, length = 32)
     @Builder.Default
-    private String status = "DRAFT"; // DRAFT, PUBLISHED, ARCHIVED
+    private String status = "DRAFT"; // DRAFT, VALIDATING, PENDING_APPROVAL, APPROVED, PUBLISHED, ARCHIVED, REJECTED
 
     @Column(name = "change_summary", length = 500)
     private String changeSummary;
+
+    @Column(name = "parent_version_id")
+    private Long parentVersionId;
+
+    @Column(name = "rollback_from_version")
+    private Integer rollbackFromVersion;
+
+    @Column(name = "checksum", length = 64)
+    private String checksum;
+
+    @Version
+    @Column(name = "opt_lock_version")
+    @Builder.Default
+    private Long optLockVersion = 0L;
 
     @Column(name = "created_by", nullable = false, length = 64)
     private String createdBy;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_by", length = 64)
+    @Builder.Default
+    private String updatedBy = "system";
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     @Column(name = "published_by", length = 64)
     private String publishedBy;
@@ -58,7 +79,15 @@ public class ConfigurationVersion {
 
     @PrePersist
     public void prePersist() {
-        if (createdAt == null) createdAt = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        if (createdAt == null) createdAt = now;
+        if (updatedAt == null) updatedAt = now;
         if (status == null) status = "DRAFT";
+        if (optLockVersion == null) optLockVersion = 0L;
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 }
