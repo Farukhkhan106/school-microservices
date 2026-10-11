@@ -12,42 +12,79 @@ public class SecurityContextUtil {
     @Value("${app.gateway.internal-secret:${INTERNAL_GATEWAY_SECRET:success-academy-secure-internal-gateway-token-2026}}")
     private String internalGatewaySecret;
 
+    private final JwtUtil jwtUtil;
+
+    public SecurityContextUtil(JwtUtil jwtUtil) {
+        this.jwtUtil = jwtUtil;
+    }
+
     public boolean isTrustedInternalCall(HttpServletRequest req) {
         String secret = req.getHeader("X-Internal-Secret");
         return secret != null && secret.equals(internalGatewaySecret);
     }
 
     public String getCurrentRole(HttpServletRequest req) {
-        if (!isTrustedInternalCall(req)) {
-            return "ANONYMOUS";
+        if (isTrustedInternalCall(req)) {
+            String role = req.getHeader("X-User-Role");
+            if (role != null && !role.isBlank()) {
+                String clean = role.trim().toUpperCase();
+                if (clean.startsWith("ROLE_")) clean = clean.substring(5);
+                return clean;
+            }
         }
-        String role = req.getHeader("X-User-Role");
-        if (role == null || role.isBlank()) return "ANONYMOUS";
-        String clean = role.trim().toUpperCase();
-        if (clean.startsWith("ROLE_")) {
-            clean = clean.substring(5);
+        io.jsonwebtoken.Claims claims = extractBearerClaims(req);
+        if (claims != null && claims.get("role") != null) {
+            String clean = String.valueOf(claims.get("role")).trim().toUpperCase();
+            if (clean.startsWith("ROLE_")) clean = clean.substring(5);
+            return clean;
         }
-        return clean;
+        return "ANONYMOUS";
     }
 
     public Long getCurrentUserId(HttpServletRequest req) {
-        if (!isTrustedInternalCall(req)) return null;
-        return parseLong(req.getHeader("X-User-Id"));
+        if (isTrustedInternalCall(req)) {
+            Long uid = parseLong(req.getHeader("X-User-Id"));
+            if (uid != null) return uid;
+        }
+        io.jsonwebtoken.Claims claims = extractBearerClaims(req);
+        if (claims != null && claims.get("userId") != null) {
+            return parseLong(String.valueOf(claims.get("userId")));
+        }
+        return null;
     }
 
     public String getCurrentUsername(HttpServletRequest req) {
-        if (!isTrustedInternalCall(req)) return null;
-        String uname = req.getHeader("X-Username");
-        return uname != null ? uname.trim() : null;
+        if (isTrustedInternalCall(req)) {
+            String uname = req.getHeader("X-Username");
+            if (uname != null && !uname.isBlank()) return uname.trim();
+        }
+        io.jsonwebtoken.Claims claims = extractBearerClaims(req);
+        if (claims != null && claims.getSubject() != null) {
+            return claims.getSubject().trim();
+        }
+        return null;
     }
 
     public String getTenantId(HttpServletRequest req) {
-        if (!isTrustedInternalCall(req)) {
-            // Check if user is authenticated via Bearer token in request
-            return TenantContext.DEFAULT_TENANT;
+        if (isTrustedInternalCall(req)) {
+            String tenant = req.getHeader("X-Tenant-Id");
+            if (tenant != null && !tenant.isBlank()) return tenant.trim();
         }
-        String tenant = req.getHeader("X-Tenant-Id");
-        return tenant != null && !tenant.isBlank() ? tenant.trim() : TenantContext.DEFAULT_TENANT;
+        io.jsonwebtoken.Claims claims = extractBearerClaims(req);
+        if (claims != null && claims.get("tenantId") != null) {
+            String t = String.valueOf(claims.get("tenantId")).trim();
+            if (!t.isBlank()) return t;
+        }
+        return TenantContext.DEFAULT_TENANT;
+    }
+
+    private io.jsonwebtoken.Claims extractBearerClaims(HttpServletRequest req) {
+        String authHeader = req.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7).trim();
+            return jwtUtil.extractClaims(token);
+        }
+        return null;
     }
 
     public boolean isAdmin(HttpServletRequest req) {

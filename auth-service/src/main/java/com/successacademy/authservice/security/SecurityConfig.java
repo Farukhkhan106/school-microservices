@@ -33,7 +33,7 @@ public class SecurityConfig implements WebMvcConfigurer {
                 .cors(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**", "/api/auth/**", "/configuration/effective").permitAll()
+                        .requestMatchers("/auth/**", "/api/auth/**", "/workflow/**", "/configuration/**", "/tenants/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(tenantContextFilter, UsernamePasswordAuthenticationFilter.class)
