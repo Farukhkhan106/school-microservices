@@ -53,6 +53,9 @@ class AcademicSessionTransitionTest {
     @Mock
     private AuditLogService auditLogService;
 
+    @Mock
+    private AcademicConfigurationService academicConfigurationService;
+
     @InjectMocks
     private AcademicSessionTransitionService transitionService;
 

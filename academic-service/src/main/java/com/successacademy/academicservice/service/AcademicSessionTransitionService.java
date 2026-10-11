@@ -32,6 +32,7 @@ public class AcademicSessionTransitionService {
     private final StudentServiceClient studentServiceClient;
     private final FeeServiceClient feeServiceClient;
     private final AuditLogService auditLogService;
+    private final AcademicConfigurationService academicConfigurationService;
 
     @Transactional
     public TransitionPreviewResponse previewTransition(SessionTransitionRequest req, String tenantId, Long actorUserId) {
@@ -129,8 +130,8 @@ public class AcademicSessionTransitionService {
             }
 
             if (promo == null) {
-                PromotionDecision suggested = calculateSuggestedDecision(se.getStudentClass());
-                String nextClass = calculateNextClass(se.getStudentClass(), suggested);
+                PromotionDecision suggested = calculateSuggestedDecision(se.getStudentClass(), cleanTenant);
+                String nextClass = calculateNextClass(se.getStudentClass(), cleanTenant, suggested);
 
                 promo = StudentPromotion.builder()
                         .tenantId(cleanTenant)
@@ -407,6 +408,14 @@ public class AcademicSessionTransitionService {
     // ── PROMOTION RULES ENGINE ───────────────────────────────────
 
     public PromotionDecision calculateSuggestedDecision(String currentClass) {
+        return calculateSuggestedDecision(currentClass, "default");
+    }
+
+    public PromotionDecision calculateSuggestedDecision(String currentClass, String tenantId) {
+        if (academicConfigurationService != null) {
+            PromotionDecision dec = academicConfigurationService.calculateSuggestedDecision(currentClass, tenantId);
+            if (dec != null) return dec;
+        }
         if (currentClass == null) return PromotionDecision.PROMOTE;
         String clean = currentClass.trim().toUpperCase();
         if ("12".equals(clean) || "CLASS 12".equals(clean) || "XII".equals(clean)) {
@@ -416,6 +425,14 @@ public class AcademicSessionTransitionService {
     }
 
     public String calculateNextClass(String currentClass, PromotionDecision decision) {
+        return calculateNextClass(currentClass, "default", decision);
+    }
+
+    public String calculateNextClass(String currentClass, String tenantId, PromotionDecision decision) {
+        if (academicConfigurationService != null) {
+            String next = academicConfigurationService.calculateNextClass(currentClass, tenantId, decision);
+            if (next != null) return next;
+        }
         if (decision == PromotionDecision.GRADUATE) {
             return "GRADUATED";
         }

@@ -46,6 +46,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             // Public fee structure (fees page)
             "/fee-service/fees/structure",
 
+            // Public academic structure
+            "/academic/structure",
+            "/academic-service/academic/structure",
+
             // Public faculty listing (faculty page)
             "/faculty-service/faculty/public",
 
