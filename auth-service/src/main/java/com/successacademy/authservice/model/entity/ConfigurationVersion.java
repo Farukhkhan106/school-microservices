@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
         @Index(name = "idx_cfg_ver_tenant", columnList = "tenant_key"),
         @Index(name = "idx_cfg_ver_env", columnList = "environment_key"),
         @Index(name = "idx_cfg_ver_status", columnList = "status"),
+        @Index(name = "idx_cfg_ver_version", columnList = "version_number"),
         @Index(name = "idx_cfg_ver_tenant_status", columnList = "tenant_key, environment_key, status")
 }, uniqueConstraints = {
         @UniqueConstraint(name = "uk_tenant_env_version", columnNames = {"tenant_key", "environment_key", "version_number"})
@@ -51,7 +52,7 @@ public class ConfigurationVersion {
     private String checksum;
 
     @Version
-    @Column(name = "opt_lock_version")
+    @Column(name = "opt_lock_version", nullable = false)
     @Builder.Default
     private Long optLockVersion = 0L;
 

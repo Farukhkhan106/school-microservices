@@ -88,7 +88,11 @@ public class SecurityContextUtil {
     }
 
     public boolean isAdmin(HttpServletRequest req) {
-        return "ADMIN".equalsIgnoreCase(getCurrentRole(req));
+        String role = getCurrentRole(req);
+        return "ADMIN".equalsIgnoreCase(role)
+                || "PLATFORM_ADMIN".equalsIgnoreCase(role)
+                || "TENANT_ADMIN".equalsIgnoreCase(role)
+                || "SUPER_ADMIN".equalsIgnoreCase(role);
     }
 
     public void requireAdmin(HttpServletRequest req) {

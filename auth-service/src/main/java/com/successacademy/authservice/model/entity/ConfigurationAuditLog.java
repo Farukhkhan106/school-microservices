@@ -8,7 +8,9 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "configuration_audit_logs", indexes = {
         @Index(name = "idx_cal_tenant", columnList = "tenant_key"),
-        @Index(name = "idx_cal_timestamp", columnList = "timestamp")
+        @Index(name = "idx_cal_timestamp", columnList = "timestamp"),
+        @Index(name = "idx_cal_target_version", columnList = "target_version_number"),
+        @Index(name = "idx_cal_tenant_timestamp", columnList = "tenant_key, timestamp")
 })
 @Getter
 @Setter
@@ -42,7 +44,7 @@ public class ConfigurationAuditLog {
     @Column(name = "details", length = 1000)
     private String details;
 
-    @Column(name = "diff_summary", columnDefinition = "TEXT")
+    @Column(name = "diff_summary", length = 500)
     private String diffSummary;
 
     @Column(name = "timestamp", nullable = false, updatable = false)
