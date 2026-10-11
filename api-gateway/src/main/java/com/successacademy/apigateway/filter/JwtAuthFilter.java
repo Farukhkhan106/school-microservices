@@ -31,6 +31,12 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             "/auth-service/auth/register",
             "/auth-service/auth/exists",
             "/auth-service/auth/change-password",
+            "/auth-service/auth/invitation/accept",
+            "/auth-service/auth/password/reset/request",
+            "/auth-service/auth/password/reset/confirm",
+            "/auth/invitation/accept",
+            "/auth/password/reset/request",
+            "/auth/password/reset/confirm",
             "/auth-service/configuration/effective",
             "/configuration/effective",
 

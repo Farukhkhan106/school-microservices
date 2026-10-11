@@ -40,6 +40,18 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Invalid password");
         }
 
+        // Phase 6 Account Lifecycle Enforcement
+        if (user.getStatus() != null && !"ACTIVE".equalsIgnoreCase(user.getStatus())) {
+            log.warn("Login rejected for user {}: status is {}", user.getUsername(), user.getStatus());
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN,
+                    "Account login rejected. Account status is " + user.getStatus() + ".");
+        }
+
+        // Record successful login timestamp
+        user.setLastLoginAt(java.time.LocalDateTime.now());
+        userRepository.save(user);
+
         String tenantId = (user.getTenantId() != null && !user.getTenantId().isBlank()) ? user.getTenantId() : "default";
 
         String token = jwtUtil.generateToken(

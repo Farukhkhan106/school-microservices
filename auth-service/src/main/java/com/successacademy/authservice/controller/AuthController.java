@@ -3,6 +3,8 @@ package com.successacademy.authservice.controller;
 import com.successacademy.authservice.model.*;
 import com.successacademy.authservice.repository.UserRepository;
 import com.successacademy.authservice.service.AuthService;
+import jakarta.persistence.*;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -81,6 +83,34 @@ public class AuthController {
             @RequestParam String status) {
         authService.setTeacherStatus(teacherId, status);
         return ResponseEntity.ok().build();
+    }
+
+    private final com.successacademy.authservice.service.user.UserService userService;
+
+    // ── Public Invitation Acceptance ──────────────────────────────
+    @PostMapping("/invitation/accept")
+    public ResponseEntity<Map<String, String>> acceptInvitation(@Valid @RequestBody com.successacademy.authservice.dto.user.AcceptInvitationRequest request) {
+        userService.acceptInvitation(request);
+        return ResponseEntity.ok(Map.of("message", "Invitation accepted and account activated successfully."));
+    }
+
+    // ── Public Password Reset Request ─────────────────────────────
+    @PostMapping("/password/reset/request")
+    public ResponseEntity<Map<String, String>> requestPasswordReset(
+            @Valid @RequestBody com.successacademy.authservice.dto.user.PasswordResetRequest body,
+            jakarta.servlet.http.HttpServletRequest req) {
+        String tenantId = req.getHeader("X-Tenant-ID");
+        if (tenantId == null || tenantId.isBlank()) tenantId = "default";
+        userService.initiatePasswordReset(body, tenantId, null, "ANONYMOUS", "PUBLIC");
+        return ResponseEntity.ok(Map.of("message", "If an account matching the username or email exists, a password reset link has been processed."));
+    }
+
+    // ── Public Password Reset Confirmation ────────────────────────
+    @PostMapping("/password/reset/confirm")
+    public ResponseEntity<Map<String, String>> confirmPasswordReset(
+            @Valid @RequestBody com.successacademy.authservice.dto.user.ConfirmPasswordResetRequest body) {
+        userService.confirmPasswordReset(body);
+        return ResponseEntity.ok(Map.of("message", "Password has been successfully reset. You may now login."));
     }
 
     // ── Health check ──────────────────────────────────────────────

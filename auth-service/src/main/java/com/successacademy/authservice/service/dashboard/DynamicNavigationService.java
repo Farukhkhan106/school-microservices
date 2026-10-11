@@ -472,6 +472,18 @@ public class DynamicNavigationService {
                 .displayOrder(120)
                 .build());
 
+        // 13.5. User Management
+        list.add(NavigationItemDto.builder()
+                .id("nav_users")
+                .key("users")
+                .label("User Management")
+                .icon("Users")
+                .route("/admin/users")
+                .section("SYSTEM")
+                .requiredPermission("user.view")
+                .displayOrder(128)
+                .build());
+
         // 14. Roles & Security
         list.add(NavigationItemDto.builder()
                 .id("nav_roles")
