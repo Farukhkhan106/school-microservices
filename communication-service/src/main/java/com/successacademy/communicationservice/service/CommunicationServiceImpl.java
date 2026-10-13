@@ -139,7 +139,7 @@ public class CommunicationServiceImpl implements CommunicationService {
                     break;
                 case "DIRECT":
                     // Only if user is one of the participants
-                    authorized = participantRepository.existsByConversationIdAndUserId(c.getId(), user.getUserId());
+                    authorized = user != null && user.getUserId() != null && participantRepository.existsByConversationIdAndUserId(c.getId(), user.getUserId());
                     break;
             }
 
@@ -674,10 +674,15 @@ public class CommunicationServiceImpl implements CommunicationService {
         MessageDto lastMsg = lastMsgOpt.map(this::mapToMessageDto).orElse(null);
 
         // Calculate unread count for current user
-        Optional<ConversationParticipant> partOpt = participantRepository.findByConversationIdAndUserId(c.getId(), currentUser.getUserId());
+        Optional<ConversationParticipant> partOpt = Optional.empty();
+        if (currentUser != null && currentUser.getUserId() != null) {
+            partOpt = participantRepository.findByConversationIdAndUserId(c.getId(), currentUser.getUserId());
+        }
         Long lastReadId = partOpt.map(ConversationParticipant::getLastReadMessageId).orElse(null);
 
-        long unread = messageRepository.countUnreadMessages(c.getId(), lastReadId, currentUser.getUserId());
+        long unread = (currentUser != null && currentUser.getUserId() != null)
+                ? messageRepository.countUnreadMessages(c.getId(), lastReadId, currentUser.getUserId())
+                : 0L;
 
         ConversationDto dto = ConversationDto.builder()
                 .id(c.getId())
@@ -698,7 +703,7 @@ public class CommunicationServiceImpl implements CommunicationService {
         if ("DIRECT".equalsIgnoreCase(c.getType())) {
             List<ConversationParticipant> parts = participantRepository.findByConversationId(c.getId());
             for (ConversationParticipant p : parts) {
-                if (!p.getUserId().equals(currentUser.getUserId())) {
+                if (currentUser != null && currentUser.getUserId() != null && !java.util.Objects.equals(p.getUserId(), currentUser.getUserId())) {
                     dto.setOtherUserId(p.getUserId());
                     dto.setOtherUsername(p.getUsername());
                     dto.setOtherUserRole(p.getUserRole());

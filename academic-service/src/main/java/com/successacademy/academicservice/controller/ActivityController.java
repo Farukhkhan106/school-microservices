@@ -62,8 +62,9 @@ public class ActivityController {
     ) {
         securityUtil.requireAdminOrTeacher(req);
         Long teacherId = securityUtil.getCurrentTeacherId(req);
+        boolean isAdmin = securityUtil.isAdmin(req);
         return ResponseEntity.ok(activityService.getTeacherActivities(
-                teacherId, studentClass, section, subject, type, status
+                teacherId, studentClass, section, subject, type, status, isAdmin
         ));
     }
 

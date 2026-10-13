@@ -26,7 +26,7 @@ public interface AcademicActivityRepository extends JpaRepository<AcademicActivi
             String studentClass, String section
     );
 
-    @Query("SELECT a FROM AcademicActivity a WHERE a.teacherId = :teacherId " +
+    @Query("SELECT a FROM AcademicActivity a WHERE (:teacherId IS NULL OR a.teacherId = :teacherId) " +
            "AND (:studentClass IS NULL OR a.studentClass = :studentClass) " +
            "AND (:section IS NULL OR a.section = :section) " +
            "AND (:subject IS NULL OR a.subject = :subject) " +

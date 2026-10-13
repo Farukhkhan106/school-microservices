@@ -233,15 +233,27 @@ public class AcademicActivityService {
             String section,
             String subject,
             ActivityType type,
-            ActivityStatus status
+            ActivityStatus status,
+            boolean isAdmin
     ) {
-        if (teacherId == null) {
+        if (teacherId == null && !isAdmin) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing authenticated teacher identity.");
         }
         return activityRepository.findTeacherActivitiesFiltered(teacherId, studentClass, section, subject, type, status)
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
+    }
+
+    public List<ActivityResponse> getTeacherActivities(
+            Long teacherId,
+            String studentClass,
+            String section,
+            String subject,
+            ActivityType type,
+            ActivityStatus status
+    ) {
+        return getTeacherActivities(teacherId, studentClass, section, subject, type, status, false);
     }
 
     public List<ActivityResponse> getStudentActivities(
