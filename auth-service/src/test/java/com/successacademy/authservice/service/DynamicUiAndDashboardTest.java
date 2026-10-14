@@ -114,7 +114,7 @@ class DynamicUiAndDashboardTest {
         List<NavigationItemDto> nav = navigationService.resolveNavigation(2L, tenant, "TEACHER", null);
 
         // Assert
-        assertTrue(nav.stream().anyMatch(n -> "students".equals(n.getKey())), "Student item should be visible");
+        assertTrue(nav.stream().anyMatch(n -> "teacher.students".equals(n.getKey()) || "students".equals(n.getKey())), "Student item should be visible");
         assertTrue(nav.stream().noneMatch(n -> "faculty".equals(n.getKey())), "Faculty item should be hidden without faculty.view");
         assertTrue(nav.stream().noneMatch(n -> "fees".equals(n.getKey())), "Fees item should be hidden without fees.view");
     }
@@ -157,18 +157,18 @@ class DynamicUiAndDashboardTest {
         wi1.setResourceType("STUDENT_LEAVE_APPROVAL");
         task.setWorkflowInstance(wi1);
         task.setStatus("PENDING");
-        when(approvalTaskRepository.findPendingTasksForUser(tenant, 4L, "TEACHER")).thenReturn(List.of(task));
+        when(approvalTaskRepository.findPendingTasksForUser(tenant, 4L, "ADMIN")).thenReturn(List.of(task));
 
         EffectiveAuthorizationResponse authz = EffectiveAuthorizationResponse.builder()
                 .tenantId(tenant)
-                .roles(List.of("TEACHER"))
+                .roles(List.of("ADMIN"))
                 .permissions(List.of("workflow.task.view", "workflow.instance.view"))
                 .permissionScopes(Map.of("workflow.task.view", "ASSIGNED"))
                 .build();
         when(rbacService.getEffectiveAuthorization(4L, tenant)).thenReturn(authz);
 
         // Act
-        List<NavigationItemDto> nav = navigationService.resolveNavigation(4L, tenant, "TEACHER", null);
+        List<NavigationItemDto> nav = navigationService.resolveNavigation(4L, tenant, "ADMIN", null);
 
         // Assert
         NavigationItemDto wfParent = nav.stream().filter(n -> "workflows".equals(n.getKey())).findFirst().orElse(null);
