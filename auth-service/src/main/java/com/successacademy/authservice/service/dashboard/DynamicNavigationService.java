@@ -58,8 +58,27 @@ public class DynamicNavigationService {
         // 2. Compute dynamic badges
         Map<String, String> dynamicBadges = computeDynamicBadges(cleanTenant, userId, previewRole != null ? previewRole : userRole);
 
-        // 3. Build system navigation catalog
-        List<NavigationItemDto> catalog = buildSystemNavigationCatalog();
+        String effectiveRole = (previewRole != null && !previewRole.isBlank()) ? previewRole.toUpperCase() : userRole;
+        if ((effectiveRole == null || effectiveRole.isBlank()) && !effectiveRoles.isEmpty()) {
+            effectiveRole = effectiveRoles.get(0);
+        }
+        if (effectiveRole == null) {
+            effectiveRole = "ADMIN";
+        } else {
+            effectiveRole = effectiveRole.toUpperCase();
+        }
+
+        // 3. Build role-scoped navigation catalog
+        List<NavigationItemDto> catalog;
+        if ("STUDENT".equals(effectiveRole)) {
+            catalog = buildStudentNavigationCatalog();
+        } else if ("TEACHER".equals(effectiveRole)) {
+            catalog = buildTeacherNavigationCatalog();
+        } else if ("STAFF".equals(effectiveRole)) {
+            catalog = buildStaffNavigationCatalog();
+        } else {
+            catalog = buildSystemNavigationCatalog();
+        }
 
         // 4. Filter items according to Feature Entitlements and Permissions
         List<NavigationItemDto> permittedItems = new ArrayList<>();
@@ -552,6 +571,323 @@ public class DynamicNavigationService {
                 .parentKey("configuration")
                 .requiredPermission("configuration.view")
                 .displayOrder(142)
+                .build());
+
+        return list;
+    }
+
+    private List<NavigationItemDto> buildStudentNavigationCatalog() {
+        List<NavigationItemDto> list = new ArrayList<>();
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_student_dashboard")
+                .key("dashboard")
+                .label("Dashboard")
+                .icon("LayoutDashboard")
+                .route("/student")
+                .section("OVERVIEW")
+                .displayOrder(1)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_student_profile")
+                .key("student.profile")
+                .label("My Profile")
+                .icon("User")
+                .route("/student/profile")
+                .section("MANAGEMENT")
+                .requiredPermission("student.view")
+                .displayOrder(10)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_student_attendance")
+                .key("student.attendance")
+                .label("Attendance")
+                .icon("CalendarCheck")
+                .route("/student/attendance")
+                .section("ACADEMICS")
+                .requiredFeature(FeatureKey.ATTENDANCE)
+                .requiredPermission("attendance.view")
+                .displayOrder(20)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_student_fees")
+                .key("student.fees")
+                .label("Fee Status")
+                .icon("CreditCard")
+                .route("/student/fees")
+                .section("MANAGEMENT")
+                .requiredFeature(FeatureKey.FEES)
+                .requiredPermission("fees.view")
+                .displayOrder(30)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_student_academics")
+                .key("student.academics")
+                .label("Academics")
+                .icon("BookOpen")
+                .route("/student/academics")
+                .section("ACADEMICS")
+                .requiredFeature(FeatureKey.FACULTY)
+                .displayOrder(40)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_student_results")
+                .key("student.results")
+                .label("Results & Exams")
+                .icon("Award")
+                .route("/student/results")
+                .section("ACADEMICS")
+                .requiredFeature(FeatureKey.EXAMINATIONS)
+                .requiredPermission("exam.view")
+                .displayOrder(50)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_student_activities")
+                .key("student.activities")
+                .label("Activities & Homework")
+                .icon("Sparkles")
+                .route("/student/activities")
+                .section("ACADEMICS")
+                .requiredFeature(FeatureKey.ACTIVITIES)
+                .requiredPermission("activity.view")
+                .displayOrder(60)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_student_notices")
+                .key("student.notices")
+                .label("Circulars & Notices")
+                .icon("Bell")
+                .route("/student/notices")
+                .section("COMMUNICATION")
+                .requiredFeature(FeatureKey.NOTICES)
+                .requiredPermission("notice.view")
+                .displayOrder(70)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_student_messages")
+                .key("student.messages")
+                .label("Messages")
+                .icon("MessageSquare")
+                .route("/student/messages")
+                .section("COMMUNICATION")
+                .requiredFeature(FeatureKey.COMMUNICATION)
+                .requiredPermission("communication.view")
+                .displayOrder(80)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_student_settings")
+                .key("student.settings")
+                .label("Settings")
+                .icon("Settings")
+                .route("/student/settings")
+                .section("SYSTEM")
+                .displayOrder(90)
+                .build());
+
+        return list;
+    }
+
+    private List<NavigationItemDto> buildTeacherNavigationCatalog() {
+        List<NavigationItemDto> list = new ArrayList<>();
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_teacher_dashboard")
+                .key("dashboard")
+                .label("Dashboard")
+                .icon("LayoutDashboard")
+                .route("/teacher")
+                .section("OVERVIEW")
+                .displayOrder(1)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_teacher_classes")
+                .key("teacher.classes")
+                .label("My Classes")
+                .icon("School")
+                .route("/teacher/classes")
+                .section("ACADEMICS")
+                .requiredPermission("academic.class.view")
+                .displayOrder(10)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_teacher_students")
+                .key("teacher.students")
+                .label("Students")
+                .icon("GraduationCap")
+                .route("/teacher/students")
+                .section("MANAGEMENT")
+                .requiredPermission("student.view")
+                .displayOrder(20)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_teacher_timetable")
+                .key("teacher.timetable")
+                .label("Timetable")
+                .icon("Calendar")
+                .route("/teacher/timetable")
+                .section("ACADEMICS")
+                .requiredFeature(FeatureKey.FACULTY)
+                .displayOrder(30)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_teacher_attendance")
+                .key("teacher.attendance")
+                .label("Attendance")
+                .icon("CalendarCheck")
+                .route("/teacher/attendance")
+                .section("ACADEMICS")
+                .requiredFeature(FeatureKey.ATTENDANCE)
+                .requiredPermission("attendance.view")
+                .displayOrder(40)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_teacher_activities")
+                .key("teacher.activities")
+                .label("Activities & Homework")
+                .icon("Sparkles")
+                .route("/teacher/activities")
+                .section("ACADEMICS")
+                .requiredFeature(FeatureKey.ACTIVITIES)
+                .requiredPermission("activity.view")
+                .displayOrder(50)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_teacher_marks")
+                .key("teacher.marks")
+                .label("Exam Marks Entry")
+                .icon("Award")
+                .route("/teacher/marks")
+                .section("ACADEMICS")
+                .requiredFeature(FeatureKey.EXAMINATIONS)
+                .requiredPermission("exam.marks.entry")
+                .displayOrder(60)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_teacher_notices")
+                .key("teacher.notices")
+                .label("School Notices")
+                .icon("Bell")
+                .route("/teacher/notices")
+                .section("COMMUNICATION")
+                .requiredFeature(FeatureKey.NOTICES)
+                .requiredPermission("notice.view")
+                .displayOrder(70)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_teacher_messages")
+                .key("teacher.messages")
+                .label("Messages")
+                .icon("MessageSquare")
+                .route("/teacher/messages")
+                .section("COMMUNICATION")
+                .requiredFeature(FeatureKey.COMMUNICATION)
+                .requiredPermission("communication.view")
+                .displayOrder(80)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_teacher_profile")
+                .key("teacher.profile")
+                .label("My Profile")
+                .icon("User")
+                .route("/teacher/profile")
+                .section("MANAGEMENT")
+                .displayOrder(90)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_teacher_settings")
+                .key("teacher.settings")
+                .label("Settings")
+                .icon("Settings")
+                .route("/teacher/settings")
+                .section("SYSTEM")
+                .displayOrder(100)
+                .build());
+
+        return list;
+    }
+
+    private List<NavigationItemDto> buildStaffNavigationCatalog() {
+        List<NavigationItemDto> list = new ArrayList<>();
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_staff_dashboard")
+                .key("dashboard")
+                .label("Dashboard")
+                .icon("LayoutDashboard")
+                .route("/staff")
+                .section("OVERVIEW")
+                .displayOrder(1)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_staff_profile")
+                .key("staff.profile")
+                .label("My Profile")
+                .icon("User")
+                .route("/staff/profile")
+                .section("MANAGEMENT")
+                .displayOrder(10)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_staff_attendance")
+                .key("staff.attendance")
+                .label("My Attendance")
+                .icon("CalendarCheck")
+                .route("/staff/attendance")
+                .section("ACADEMICS")
+                .requiredFeature(FeatureKey.ATTENDANCE)
+                .displayOrder(20)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_staff_leave")
+                .key("staff.leave")
+                .label("Leave Management")
+                .icon("CalendarOff")
+                .route("/staff/leave")
+                .section("MANAGEMENT")
+                .displayOrder(30)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_staff_notices")
+                .key("staff.notices")
+                .label("Notices")
+                .icon("Bell")
+                .route("/staff/notices")
+                .section("COMMUNICATION")
+                .requiredFeature(FeatureKey.NOTICES)
+                .displayOrder(40)
+                .build());
+
+        list.add(NavigationItemDto.builder()
+                .id("nav_staff_settings")
+                .key("staff.settings")
+                .label("Settings")
+                .icon("Settings")
+                .route("/staff/settings")
+                .section("SYSTEM")
+                .displayOrder(50)
                 .build());
 
         return list;
