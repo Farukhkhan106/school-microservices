@@ -505,6 +505,18 @@ public class DynamicNavigationService {
                 .displayOrder(114)
                 .build());
 
+        list.add(NavigationItemDto.builder()
+                .id("nav_comm_messages")
+                .key("messages")
+                .label("Messages")
+                .icon("MessageSquare")
+                .route("/admin/messages")
+                .parentKey("communication")
+                .requiredFeature(FeatureKey.COMMUNICATION)
+                .requiredPermission("communication.view")
+                .displayOrder(115)
+                .build());
+
         // 13. Reports
         list.add(NavigationItemDto.builder()
                 .id("nav_reports")

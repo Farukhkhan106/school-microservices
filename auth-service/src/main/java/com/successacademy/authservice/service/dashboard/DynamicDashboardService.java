@@ -438,7 +438,7 @@ public class DynamicDashboardService {
                     .key("action.enterMarks")
                     .label("Enter Marks")
                     .icon("PenTool")
-                    .route("/admin/examinations?action=marks")
+                    .route("/admin/marks")
                     .requiredFeature(FeatureKey.EXAMINATIONS)
                     .requiredPermission("exam.marks.entry")
                     .color("indigo")
