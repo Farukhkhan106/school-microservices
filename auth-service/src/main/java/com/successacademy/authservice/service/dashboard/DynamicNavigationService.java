@@ -53,10 +53,6 @@ public class DynamicNavigationService {
         List<String> effectiveRoles = authz.getRoles() != null
                 ? authz.getRoles()
                 : Collections.emptyList();
-        boolean isSuperOrPlatformAdmin = effectiveRoles.contains("PLATFORM_ADMIN") || effectiveRoles.contains("SUPER_ADMIN");
-
-        // 2. Compute dynamic badges
-        Map<String, String> dynamicBadges = computeDynamicBadges(cleanTenant, userId, previewRole != null ? previewRole : userRole);
 
         String effectiveRole = (previewRole != null && !previewRole.isBlank()) ? previewRole.toUpperCase() : userRole;
         if ((effectiveRole == null || effectiveRole.isBlank()) && !effectiveRoles.isEmpty()) {
@@ -67,6 +63,15 @@ public class DynamicNavigationService {
         } else {
             effectiveRole = effectiveRole.toUpperCase();
         }
+
+        boolean isSuperOrPlatformAdmin = effectiveRoles.contains("PLATFORM_ADMIN")
+                || effectiveRoles.contains("SUPER_ADMIN")
+                || effectiveRoles.contains("ADMIN")
+                || effectiveRoles.contains("TENANT_ADMIN")
+                || "ADMIN".equalsIgnoreCase(effectiveRole);
+
+        // 2. Compute dynamic badges
+        Map<String, String> dynamicBadges = computeDynamicBadges(cleanTenant, userId, previewRole != null ? previewRole : userRole);
 
         // 3. Build role-scoped navigation catalog
         List<NavigationItemDto> catalog;
@@ -447,7 +452,20 @@ public class DynamicNavigationService {
                 .displayOrder(103)
                 .build());
 
-        // 12. Communication (Parent)
+        // 12. Messages (Direct Top-Level Tab under COMMUNICATION)
+        list.add(NavigationItemDto.builder()
+                .id("nav_messages")
+                .key("messages")
+                .label("Messages")
+                .icon("MessageSquare")
+                .route("/admin/messages")
+                .section("COMMUNICATION")
+                .requiredFeature(FeatureKey.COMMUNICATION)
+                .requiredPermission("communication.view")
+                .displayOrder(109)
+                .build());
+
+        // 12.1 Communication (Parent Group for Notices, Events, Gallery, Inquiries)
         list.add(NavigationItemDto.builder()
                 .id("nav_communication_group")
                 .key("communication")
